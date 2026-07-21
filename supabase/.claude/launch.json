@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dhanos-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "..", "dev"],
+      "port": 3000
+    }
+  ]
+}
