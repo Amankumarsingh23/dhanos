@@ -64,6 +64,8 @@ const KIND_TO_CATEGORY_KIND: Record<TransactionKind, string> = {
   loan_payment: "debt",
   lending_disbursement: "debt",
   lending_repayment: "debt",
+  liability_incurred: "debt",
+  liability_payment: "debt",
   refund: "income",
   adjustment: "other",
 };

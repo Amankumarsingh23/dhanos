@@ -3,6 +3,7 @@ import {
   createStatementPeriod,
   DEFAULT_TIMEZONE,
   formatDisplayDate,
+  getTodayInTimeZone,
   isFutureDate,
   isValidDate,
   isValidMonthKey,
@@ -83,6 +84,30 @@ describe("toMonthKey / isValidMonthKey", () => {
     expect(isValidMonthKey("2026-07")).toBe(true);
     expect(isValidMonthKey("2026-13")).toBe(false);
     expect(isValidMonthKey("2026-7")).toBe(false);
+  });
+});
+
+describe("getTodayInTimeZone", () => {
+  it("matches the UTC date for a time well inside the UTC day", () => {
+    expect(getTodayInTimeZone("UTC", new Date("2026-07-21T10:00:00Z"))).toBe(
+      "2026-07-21",
+    );
+  });
+
+  it("can differ from the UTC date near UTC midnight", () => {
+    // 2026-07-01T00:30:00Z is 2026-06-30 20:00 in US/Eastern (UTC-4 in July).
+    const nearMidnightUtc = new Date("2026-07-01T00:30:00Z");
+    expect(getTodayInTimeZone("UTC", nearMidnightUtc)).toBe("2026-07-01");
+    expect(getTodayInTimeZone("America/New_York", nearMidnightUtc)).toBe(
+      "2026-06-30",
+    );
+  });
+
+  it("can be a day ahead of UTC for a timezone east of it", () => {
+    // 2026-07-01T20:00:00Z is 2026-07-02 01:30 in Asia/Kolkata (UTC+5:30).
+    const lateUtc = new Date("2026-07-01T20:00:00Z");
+    expect(getTodayInTimeZone("UTC", lateUtc)).toBe("2026-07-01");
+    expect(getTodayInTimeZone("Asia/Kolkata", lateUtc)).toBe("2026-07-02");
   });
 });
 

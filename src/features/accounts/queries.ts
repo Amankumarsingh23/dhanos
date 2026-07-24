@@ -98,7 +98,7 @@ async function fetchBalanceTransactions(
   let query = supabase
     .from("transactions")
     .select(
-      "id, kind, amount_minor_units, account_id, transfer_account_id, transaction_date",
+      "id, kind, amount_minor_units, account_id, transfer_account_id, transaction_date, transfer_fee_minor_units, transfer_destination_amount_minor_units",
     )
     .eq("household_id", householdId)
     // 'planned' hasn't occurred yet and 'cancelled' never did — neither
@@ -125,6 +125,9 @@ function toBalanceTransaction(
     accountId: row.account_id,
     transferAccountId: row.transfer_account_id,
     transactionDate: row.transaction_date,
+    transferFeeMinorUnits: row.transfer_fee_minor_units,
+    transferDestinationAmountMinorUnits:
+      row.transfer_destination_amount_minor_units,
   };
 }
 
@@ -307,7 +310,7 @@ export async function getAccountDetail(
   const balanceTransactionsResult = await supabase
     .from("transactions")
     .select(
-      "id, kind, amount_minor_units, account_id, transfer_account_id, transaction_date",
+      "id, kind, amount_minor_units, account_id, transfer_account_id, transaction_date, transfer_fee_minor_units, transfer_destination_amount_minor_units",
     )
     .eq("household_id", householdId)
     .in("status", ["pending", "cleared", "reconciled"])

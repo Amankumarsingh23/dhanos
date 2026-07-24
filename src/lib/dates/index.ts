@@ -71,6 +71,24 @@ export function toMonthKey(value: Date | string, timeZone = "UTC"): string {
   }).format(date);
 }
 
+/**
+ * "Today" as a plain YYYY-MM-DD date in a given IANA timezone — the
+ * timezone-correct counterpart to `toIsoDateString(new Date())`. Reminders
+ * (PROMPT 35) is the first feature to actually need this: a household near
+ * UTC midnight can be on a different calendar day locally than the
+ * server's own UTC clock, which would make an overdue/upcoming
+ * classification wrong for up to several hours a day. Takes an explicit
+ * `now` for testability — never reads anything but its own parameters.
+ */
+export function getTodayInTimeZone(timeZone: string, now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
 /** Default timezone for a household with none configured yet — matches profiles.timezone's default (see supabase/migrations/20260721024731_profiles.sql). */
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 

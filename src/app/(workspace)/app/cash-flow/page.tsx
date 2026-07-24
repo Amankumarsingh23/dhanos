@@ -36,6 +36,11 @@ export default async function CashFlowPage({
   const accountId = typeof params.account === "string" ? params.account : "";
   const includeCancelled = params.cancelled === "true";
   const page = typeof params.page === "string" ? Number(params.page) : 1;
+  // Deep-link support for e.g. the dashboard's "Income this month" card —
+  // not part of the manager's own editable filter UI (see
+  // TransactionsManager's filters prop), just an initial read from the URL.
+  const dateFrom = typeof params.dateFrom === "string" ? params.dateFrom : "";
+  const dateTo = typeof params.dateTo === "string" ? params.dateTo : "";
 
   const supabase = await createClient();
   const [transactionsPage, accountsPage, categories, peoplePage] =
@@ -49,6 +54,8 @@ export default async function CashFlowPage({
           status,
           accountId: accountId || undefined,
           includeCancelled,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
         },
         { page: Number.isFinite(page) && page > 0 ? page : 1 },
       ),

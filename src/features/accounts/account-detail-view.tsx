@@ -183,6 +183,20 @@ export function AccountDetailView({
                     const isOutgoingTransfer =
                       transaction.kind === "transfer" &&
                       transaction.account_id === account.id;
+                    const isIncomingTransfer =
+                      transaction.kind === "transfer" &&
+                      transaction.transfer_account_id === account.id;
+                    // A cross-currency transfer's destination amount is in
+                    // *this* account's currency, not transaction.currency_code
+                    // (which is always the source side's currency) — this
+                    // account is the destination whenever isIncomingTransfer.
+                    const displayAmount = isIncomingTransfer
+                      ? (transaction.transfer_destination_amount_minor_units ??
+                        transaction.amount_minor_units)
+                      : transaction.amount_minor_units;
+                    const displayCurrencyCode = isIncomingTransfer
+                      ? account.currency_code
+                      : transaction.currency_code;
                     return (
                       <tr key={transaction.id}>
                         <td className="py-2 pr-4">
@@ -199,14 +213,29 @@ export function AccountDetailView({
                             transaction.counterparty ?? (
                               <span className="text-muted-foreground">—</span>
                             )}
+                          {isOutgoingTransfer &&
+                            transaction.transfer_fee_minor_units && (
+                              <span className="text-muted-foreground block text-xs">
+                                Fee{" "}
+                                {formatMoney({
+                                  amountMinorUnits:
+                                    transaction.transfer_fee_minor_units,
+                                  currencyCode: transaction.currency_code,
+                                })}
+                              </span>
+                            )}
+                          {transaction.exchange_rate && (
+                            <span className="text-muted-foreground block text-xs">
+                              Rate {transaction.exchange_rate}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2 pr-4">
                           <SensitiveAmount
                             value={`${isOutgoingTransfer ? "-" : ""}${formatMoney(
                               {
-                                amountMinorUnits:
-                                  transaction.amount_minor_units,
-                                currencyCode: transaction.currency_code,
+                                amountMinorUnits: displayAmount,
+                                currencyCode: displayCurrencyCode,
                               },
                             )}`}
                           />
@@ -238,7 +267,9 @@ export function AccountDetailView({
                 <thead className="text-muted-foreground">
                   <tr>
                     <th className="py-2 pr-4 font-medium">As of</th>
-                    <th className="py-2 pr-4 font-medium">Balance</th>
+                    <th className="py-2 pr-4 font-medium">Confirmed</th>
+                    <th className="py-2 pr-4 font-medium">Calculated</th>
+                    <th className="py-2 pr-4 font-medium">Difference</th>
                     <th className="py-2 pr-4 font-medium">Source</th>
                     <th className="py-2 pr-4 font-medium">Notes</th>
                   </tr>
@@ -256,6 +287,42 @@ export function AccountDetailView({
                             currencyCode: snapshot.currency_code,
                           })}
                         />
+                      </td>
+                      <td className="py-2 pr-4">
+                        {snapshot.calculated_balance_minor_units !== null ? (
+                          <SensitiveAmount
+                            value={formatMoney({
+                              amountMinorUnits:
+                                snapshot.calculated_balance_minor_units,
+                              currencyCode: snapshot.currency_code,
+                            })}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {snapshot.difference_minor_units !== null ? (
+                          <span
+                            className={
+                              snapshot.difference_minor_units === 0
+                                ? "text-muted-foreground"
+                                : "text-foreground font-medium"
+                            }
+                          >
+                            <SensitiveAmount
+                              value={`${snapshot.difference_minor_units > 0 ? "+" : ""}${formatMoney(
+                                {
+                                  amountMinorUnits:
+                                    snapshot.difference_minor_units,
+                                  currencyCode: snapshot.currency_code,
+                                },
+                              )}`}
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="py-2 pr-4">
                         <DataSourceBadge

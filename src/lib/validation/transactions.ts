@@ -24,6 +24,8 @@ export const transactionKindSchema = z.enum([
   "loan_payment",
   "lending_disbursement",
   "lending_repayment",
+  "liability_incurred",
+  "liability_payment",
   "refund",
   "adjustment",
 ]);
@@ -39,6 +41,8 @@ export const TRANSACTION_KIND_LABELS: Record<TransactionKind, string> = {
   loan_payment: "Loan payment",
   lending_disbursement: "Lending disbursement",
   lending_repayment: "Lending repayment",
+  liability_incurred: "Liability incurred",
+  liability_payment: "Liability payment",
   refund: "Refund",
   adjustment: "Adjustment",
 };
@@ -60,6 +64,8 @@ export const GENERAL_FORM_TRANSACTION_KINDS = [
   "loan_payment",
   "lending_disbursement",
   "lending_repayment",
+  "liability_incurred",
+  "liability_payment",
 ] as const satisfies readonly TransactionKind[];
 
 export const transactionStatusSchema = z.enum([

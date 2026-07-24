@@ -22,12 +22,13 @@ function transaction(
 }
 
 describe("signedContribution", () => {
-  it("adds income, investment withdrawals, loan disbursements, lending repayments, and refunds", () => {
+  it("adds income, investment withdrawals, loan disbursements, lending repayments, insurance claim settlements, and refunds", () => {
     for (const kind of [
       "income",
       "investment_withdrawal",
       "loan_disbursement",
       "lending_repayment",
+      "insurance_claim_settlement",
       "refund",
     ] as const) {
       expect(
@@ -73,6 +74,30 @@ describe("signedContribution", () => {
     });
     expect(signedContribution(outgoing, ACCOUNT_ID)).toBe(-200);
     expect(signedContribution(outgoing, OTHER_ACCOUNT_ID)).toBe(200);
+  });
+
+  it("subtracts a transfer fee from the source account only, never from the destination", () => {
+    const withFee = transaction({
+      kind: "transfer",
+      amountMinorUnits: 200,
+      accountId: ACCOUNT_ID,
+      transferAccountId: OTHER_ACCOUNT_ID,
+      transferFeeMinorUnits: 15,
+    });
+    expect(signedContribution(withFee, ACCOUNT_ID)).toBe(-215);
+    expect(signedContribution(withFee, OTHER_ACCOUNT_ID)).toBe(200);
+  });
+
+  it("credits the destination with the explicit converted amount for a cross-currency transfer, while the source still loses the source-side amount", () => {
+    const crossCurrency = transaction({
+      kind: "transfer",
+      amountMinorUnits: 10_000, // e.g. 100.00 USD
+      accountId: ACCOUNT_ID,
+      transferAccountId: OTHER_ACCOUNT_ID,
+      transferDestinationAmountMinorUnits: 830_000, // e.g. 8,300.00 INR at an explicit rate
+    });
+    expect(signedContribution(crossCurrency, ACCOUNT_ID)).toBe(-10_000);
+    expect(signedContribution(crossCurrency, OTHER_ACCOUNT_ID)).toBe(830_000);
   });
 });
 
@@ -169,5 +194,36 @@ describe("computeAccountBalance", () => {
 
     expect(source.balance.amountMinorUnits).toBe(6_000);
     expect(destination.balance.amountMinorUnits).toBe(5_000);
+  });
+
+  it("nets a fee-bearing transfer so the fee only reduces the source side", () => {
+    const shared = transaction({
+      kind: "transfer",
+      amountMinorUnits: 4_000,
+      accountId: ACCOUNT_ID,
+      transferAccountId: OTHER_ACCOUNT_ID,
+      transactionDate: "2026-02-01",
+      transferFeeMinorUnits: 100,
+    });
+
+    const source = computeAccountBalance({
+      accountId: ACCOUNT_ID,
+      currencyCode: "INR",
+      openingBalanceMinorUnits: 10_000,
+      openedDate: null,
+      latestSnapshot: null,
+      transactions: [shared],
+    });
+    const destination = computeAccountBalance({
+      accountId: OTHER_ACCOUNT_ID,
+      currencyCode: "INR",
+      openingBalanceMinorUnits: 1_000,
+      openedDate: null,
+      latestSnapshot: null,
+      transactions: [shared],
+    });
+
+    expect(source.balance.amountMinorUnits).toBe(10_000 - 4_000 - 100);
+    expect(destination.balance.amountMinorUnits).toBe(1_000 + 4_000);
   });
 });

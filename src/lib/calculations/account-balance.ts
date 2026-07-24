@@ -33,6 +33,9 @@ export type TransactionKind =
   | "loan_payment"
   | "lending_disbursement"
   | "lending_repayment"
+  | "liability_incurred"
+  | "liability_payment"
+  | "insurance_claim_settlement"
   | "refund"
   | "adjustment";
 
@@ -42,6 +45,10 @@ export type BalanceAffectingTransaction = {
   accountId: string;
   transferAccountId: string | null;
   transactionDate: string;
+  /** Extra debit against the source account only, for kind = 'transfer' — see PROMPT 13. Null for every other kind, and for a transfer with no fee. */
+  transferFeeMinorUnits?: number | null;
+  /** The amount actually credited to transferAccountId, in its own currency, for a cross-currency kind = 'transfer' — see PROMPT 13. Null (use amountMinorUnits for both sides) for a same-currency transfer or any other kind. */
+  transferDestinationAmountMinorUnits?: number | null;
 };
 
 export type BalanceSnapshotBaseline = {
@@ -83,21 +90,29 @@ export function signedContribution(
     case "investment_withdrawal":
     case "loan_disbursement":
     case "lending_repayment":
+    case "liability_incurred":
+    case "insurance_claim_settlement":
     case "refund":
       return amount;
     case "expense":
     case "investment_contribution":
     case "loan_payment":
     case "lending_disbursement":
+    case "liability_payment":
       return -amount;
     case "adjustment":
       return amount;
     case "transfer":
+      // The destination side receives transferDestinationAmountMinorUnits
+      // when set (a cross-currency transfer's explicit converted amount —
+      // see PROMPT 13), or the same amount as the source side otherwise.
+      // The source side additionally loses transferFeeMinorUnits, if any —
+      // money that leaves the source account but never arrives anywhere.
       if (transaction.transferAccountId === accountId) {
-        return amount;
+        return transaction.transferDestinationAmountMinorUnits ?? amount;
       }
       if (transaction.accountId === accountId) {
-        return -amount;
+        return -(amount + (transaction.transferFeeMinorUnits ?? 0));
       }
       return 0;
     default:
