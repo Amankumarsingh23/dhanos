@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LandmarkIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
@@ -64,6 +64,20 @@ export function AccountsManager({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // "Show closed" is a checkbox bound to filters.includeClosed, which only
+  // updates once the URL-driven navigation below completes (a full
+  // Server Component re-fetch, not local state) — under any real network
+  // latency, that leaves the checkbox showing *unchecked* for the entire
+  // round trip after a user clicks it, looking unresponsive/broken until
+  // it suddenly flips (confirmed live: stayed unchecked for the full
+  // duration of a simulated 1.5s-latency request in this review's own
+  // "slow network" pass, PROMPT 55). useOptimistic shows the clicked
+  // value immediately and reconciles with the real prop once the
+  // transition settles, rather than displaying stale server state as if
+  // it were the current one.
+  const [optimisticIncludeClosed, setOptimisticIncludeClosed] = useOptimistic(
+    filters.includeClosed,
+  );
 
   const [searchValue, setSearchValue] = useState(filters.search);
   const [createOpen, setCreateOpen] = useState(false);
@@ -80,7 +94,15 @@ export function AccountsManager({
         params.set(key, value);
       }
     }
-    params.delete("page");
+    // Any filter change resets to page 1 — but a call that's explicitly
+    // setting the page itself (the Previous/Next buttons) must not have
+    // that same value immediately deleted again (PROMPT 56 finding —
+    // this unconditional delete silently broke every "Next" button in
+    // the app: goToPage(n) calls updateParams({ page: String(n) }),
+    // which set it, then this line deleted it again immediately after).
+    if (!("page" in patch)) {
+      params.delete("page");
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -150,12 +172,14 @@ export function AccountsManager({
           <label className="text-muted-foreground flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={filters.includeClosed}
-              onChange={(event) =>
-                updateParams({
-                  closed: event.target.checked ? "true" : undefined,
-                })
-              }
+              checked={optimisticIncludeClosed}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                startTransition(() => {
+                  setOptimisticIncludeClosed(checked);
+                  updateParams({ closed: checked ? "true" : undefined });
+                });
+              }}
               className="border-input size-4 rounded"
             />
             Show closed
@@ -177,7 +201,7 @@ export function AccountsManager({
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>

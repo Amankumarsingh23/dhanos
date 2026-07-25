@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 import {
@@ -85,7 +86,9 @@ const sipFieldsSchema = z
     newPlatformName: z.string().trim().max(200).nullable().optional(),
     newPlatformInstitutionId: uuidSchema.nullable().optional(),
     provider: z.string().trim().max(200).nullable().optional(),
-    contributionAmount: z.string().trim().min(1, "Enter a contribution amount"),
+    contributionAmount: positiveDecimalAmountSchema(
+      "Enter a contribution amount",
+    ),
     currencyCode: currencyCodeSchema,
     frequency: recurringFrequencySchema,
     intervalCount: z.number().int().min(1).max(365).default(1),
@@ -152,7 +155,7 @@ export type InvestmentSipFilters = {
 export const recordSipContributionSchema = z.object({
   investmentSipId: uuidSchema,
   occurrenceDate: isoDateStringSchema,
-  amount: z.string().trim().min(1, "Enter an amount"),
+  amount: positiveDecimalAmountSchema("Enter an amount"),
   status: z.enum(["planned", "pending", "cleared"]).default("cleared"),
   notes: notesSchema,
 });

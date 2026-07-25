@@ -168,7 +168,7 @@ export function IncomeDetailView({
               description="Use “Record income” to log an actual receipt against this source."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted-foreground">
                   <tr>

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -91,7 +92,9 @@ const loanFieldsSchema = z
     lenderPersonId: z.string().nullable().optional(),
     borrowerPersonId: z.string().min(1, "Select a borrower"),
     coBorrowerPersonId: z.string().nullable().optional(),
-    originalPrincipal: z.string().trim().min(1, "Enter the original principal"),
+    originalPrincipal: positiveDecimalAmountSchema(
+      "Enter the original principal",
+    ),
     currencyCode: currencyCodeSchema,
     annualInterestRatePercent: z
       .string()
@@ -167,7 +170,7 @@ export type LoanFilters = {
 export const recordLoanDisbursementSchema = z.object({
   loanId: uuidSchema,
   disbursementDate: isoDateStringSchema,
-  amount: z.string().trim().min(1, "Enter the disbursed amount"),
+  amount: positiveDecimalAmountSchema("Enter the disbursed amount"),
   notes: notesSchema,
 });
 export type RecordLoanDisbursementInput = z.input<

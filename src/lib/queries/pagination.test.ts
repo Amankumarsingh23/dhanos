@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   applyArchivedFilter,
   applyDeterministicOrder,
+  fetchAllRows,
+  FETCH_ALL_ROWS_PAGE_CAP,
   parsePagination,
   scopeToHousehold,
   toOverfetchRange,
   toPage,
+  type Page,
 } from "./pagination";
 
 /** A minimal fake query builder recording calls, mirroring supabase-js's chainable `.eq()`/`.order()` shape closely enough to exercise the generics against something other than `any`. */
@@ -109,6 +112,53 @@ describe("scopeToHousehold", () => {
     expect(query.calls).toEqual([
       { method: "eq", args: ["household_id", "hh-1"] },
     ]);
+  });
+});
+
+describe("fetchAllRows", () => {
+  /** Simulates a household with `total` rows, paginated exactly like a real listX query. */
+  function fakePaginatedSource(total: number) {
+    const allRows = Array.from({ length: total }, (_, i) => i);
+    let calls = 0;
+    return {
+      getCallCount: () => calls,
+      fetchPage: async (pagination: {
+        page: number;
+        pageSize: number;
+      }): Promise<Page<number>> => {
+        calls += 1;
+        const from = (pagination.page - 1) * pagination.pageSize;
+        const to = from + pagination.pageSize + 1; // overfetch, mirroring toOverfetchRange
+        const rows = allRows.slice(from, to);
+        return toPage(rows, pagination);
+      },
+    };
+  }
+
+  it("returns every row in a single page when the household has fewer rows than one page", async () => {
+    const source = fakePaginatedSource(40);
+    const result = await fetchAllRows((p) => source.fetchPage(p));
+    expect(result.rows).toEqual(Array.from({ length: 40 }, (_, i) => i));
+    expect(result.truncated).toBe(false);
+    expect(source.getCallCount()).toBe(1);
+  });
+
+  it("pages through every row when a household has more than MAX_PAGE_SIZE (100) rows — the PROMPT 47 net-worth truncation case, confirmed live with 150 seeded accounts", async () => {
+    const source = fakePaginatedSource(150);
+    const result = await fetchAllRows((p) => source.fetchPage(p));
+    expect(result.rows).toHaveLength(150);
+    expect(result.rows).toEqual(Array.from({ length: 150 }, (_, i) => i));
+    expect(result.truncated).toBe(false);
+    expect(source.getCallCount()).toBe(2);
+  });
+
+  it("stops at the safety cap and reports truncated for a runaway/corrupt dataset", async () => {
+    const total = (FETCH_ALL_ROWS_PAGE_CAP + 5) * 100;
+    const source = fakePaginatedSource(total);
+    const result = await fetchAllRows((p) => source.fetchPage(p));
+    expect(result.truncated).toBe(true);
+    expect(source.getCallCount()).toBe(FETCH_ALL_ROWS_PAGE_CAP);
+    expect(result.rows).toHaveLength(FETCH_ALL_ROWS_PAGE_CAP * 100);
   });
 });
 

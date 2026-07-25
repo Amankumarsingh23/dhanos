@@ -77,6 +77,8 @@ export default async function GoalsPage({ searchParams }: GoalsPageProps) {
           id: person.id,
           name: person.display_name,
         }))}
+        defaultAnnualInflationRate={household.default_goal_annual_inflation_rate}
+        defaultAnnualExpectedReturn={household.default_goal_annual_expected_return}
         filters={{
           search,
           goalType: goalType ?? "",

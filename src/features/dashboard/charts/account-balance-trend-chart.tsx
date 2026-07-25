@@ -74,6 +74,7 @@ export function AccountBalanceTrendChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -120,6 +121,7 @@ export function AccountBalanceTrendChart({
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Area
+            isAnimationActive={false}
             type="monotone"
             dataKey="totalMinorUnits"
             stroke="var(--color-chart-2)"

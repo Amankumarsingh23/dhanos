@@ -92,6 +92,7 @@ export function DebtReductionChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -119,6 +120,7 @@ export function DebtReductionChart({
           <ReferenceLine y={0} className="stroke-border" />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Bar
+            isAnimationActive={false}
             dataKey="reductionMinorUnits"
             fill="var(--color-chart-2)"
             radius={[2, 2, 2, 2]}

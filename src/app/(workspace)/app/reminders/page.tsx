@@ -12,6 +12,7 @@ import {
   resolveReminderEntityLinks,
 } from "@/features/reminders/queries";
 import { syncReminders } from "@/features/reminders/sync";
+import { logError } from "@/lib/observability/logger";
 import { RemindersManager } from "@/features/reminders/reminders-manager";
 import {
   reminderTypeSchema,
@@ -44,9 +45,14 @@ export default async function RemindersPage({
 
   // Best-effort, idempotent generation on every page load — never fails
   // the page itself if it errors (a stale calendar is far better than a
-  // broken one). The same function backs the manual "Refresh" button
-  // (syncRemindersAction) for whenever a household wants to force it.
-  await syncReminders(supabase, household).catch(() => {});
+  // broken one), but the failure is still logged (see
+  // docs/observability.md's "scheduled reminder monitoring") rather than
+  // silently swallowed. The same function backs the manual "Refresh"
+  // button (syncRemindersAction) for whenever a household wants to force
+  // it.
+  await syncReminders(supabase, household).catch((error: unknown) => {
+    void logError("reminders.sync", error, { householdId: household.id });
+  });
 
   const [reminders, overview] = await Promise.all([
     listReminders(supabase, household.id, asOfDate, { view, reminderType }),

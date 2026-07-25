@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -445,7 +446,7 @@ export type AssetFilters = {
 
 export const recordAssetValuationSchema = z.object({
   assetId: uuidSchema,
-  value: z.string().trim().min(1, "Enter the value"),
+  value: positiveDecimalAmountSchema("Enter the value"),
   asOfDate: isoDateStringSchema,
   source: valuationSourceSchema,
   confidence: valuationConfidenceSchema,
@@ -465,7 +466,7 @@ export const recordAssetIncomeSchema = z.object({
   assetId: uuidSchema,
   accountId: z.string().min(1, "Select an account"),
   categoryId: z.string().nullable().optional(),
-  amount: z.string().trim().min(1, "Enter the amount"),
+  amount: positiveDecimalAmountSchema("Enter the amount"),
   incomeDate: isoDateStringSchema,
   notes: notesSchema,
 });

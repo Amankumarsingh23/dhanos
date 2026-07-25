@@ -24,6 +24,32 @@ export const nonZeroAmountMinorUnitsSchema = amountMinorUnitsSchema.refine(
   "Amount cannot be zero",
 );
 
+/**
+ * A decimal amount string as typed by a user (e.g. "100.50"), for any
+ * field that must always be a positive magnitude — a target/coverage/
+ * principal/premium/contribution amount, never a signed delta. Rejects a
+ * leading "-" at the schema layer, before the value ever reaches
+ * parseDecimalToMinorUnits (src/lib/money/index.ts), which otherwise
+ * happily parses a signed string — that flexibility exists for genuinely
+ * signed contexts (see its own tests), not amount-entry fields. Found
+ * missing during the PROMPT 45 security review: every money-amount field
+ * across the app previously used a bare `z.string().trim().min(1, ...)`
+ * with no sign check, so a transaction/goal/loan/etc. amount could be
+ * submitted negative directly via the REST API, bypassing the UI
+ * entirely — see docs/security-review.md's negative-amount finding.
+ * Deliberately excludes account-balance reconciliation (a credit-type
+ * account's confirmed balance is legitimately negative) and any field
+ * representing a signed adjustment/delta rather than a magnitude — those
+ * keep the bare string schema on purpose.
+ */
+export function positiveDecimalAmountSchema(emptyMessage: string) {
+  return z
+    .string()
+    .trim()
+    .min(1, emptyMessage)
+    .refine((value) => !value.startsWith("-"), "Amount must be positive");
+}
+
 export const isoDateStringSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be a date in YYYY-MM-DD format");

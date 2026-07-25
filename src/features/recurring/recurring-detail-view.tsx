@@ -215,7 +215,7 @@ export function RecurringDetailView({
             <CardTitle>Scheduled amount changes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted-foreground">
                   <tr>
@@ -258,7 +258,7 @@ export function RecurringDetailView({
               description="Use “Record occurrence” to confirm the first one, or “Generate due occurrences” from the Recurring page for auto-create rules."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted-foreground">
                   <tr>

@@ -125,7 +125,9 @@ export function DecisionsManager({
             aria-label="Filter by related record type"
             className="w-auto"
             value={filters.entityType}
-            onChange={(event) => updateParams({ entityType: event.target.value })}
+            onChange={(event) =>
+              updateParams({ entityType: event.target.value })
+            }
           >
             <option value="">All record types</option>
             {ENTITY_TYPE_OPTIONS.map(([value, label]) => (
@@ -151,7 +153,7 @@ export function DecisionsManager({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -175,8 +177,16 @@ export function DecisionsManager({
                     {formatDate(decision.decision_date)}
                   </td>
                   <td className="px-4 py-2.5">
-                    <Badge variant={statusBadgeVariant(decision.status as DecisionStatus)}>
-                      {DECISION_STATUS_LABELS[decision.status as DecisionStatus]}
+                    <Badge
+                      variant={statusBadgeVariant(
+                        decision.status as DecisionStatus,
+                      )}
+                    >
+                      {
+                        DECISION_STATUS_LABELS[
+                          decision.status as DecisionStatus
+                        ]
+                      }
                     </Badge>
                   </td>
                 </tr>

@@ -83,6 +83,7 @@ export function SipConsistencyChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={[...rows]}
           layout="vertical"
           margin={{ top: 8, right: 24, left: 8, bottom: 0 }}

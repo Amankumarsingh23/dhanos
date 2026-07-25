@@ -1,6 +1,6 @@
 # DhanOS — Product Scope
 
-Status: **planning baseline**. No application code exists yet (see [implementation-status.md](./implementation-status.md)). This document defines what DhanOS is for and the full feature surface it must eventually cover, so every later architectural and schema decision can be checked against it.
+Status: **planning baseline, now substantially realized** (stale "no application code exists yet" corrected during the PROMPT 56 version-one audit). Nearly every module in §3 below is now implemented — see [implementation-status.md](./implementation-status.md) for the per-module build record and [version-one-release-notes.md](./version-one-release-notes.md) for the completion audit. This document remains the reference for what DhanOS is for and the feature surface every architectural/schema decision is checked against — kept as originally written rather than retrofitted, since the scope itself hasn't changed, only how much of it is built.
 
 ## 1. What DhanOS is
 
@@ -68,7 +68,7 @@ Grouped by domain, not by implementation order (see [implementation-status.md](.
 ## 4. Explicit non-goals for v1
 
 - No multi-currency consolidation logic beyond storing each account's native currency (no live FX conversion engine in v1).
-- No brokerage/bank API aggregation (Plaid-equivalent) in v1 — data entry is manual or CSV import; automated feed ingestion is a later phase.
+- No brokerage/bank API aggregation (Plaid-equivalent) in v1 — data entry is manual or CSV import; automated feed ingestion is a later phase. Bank-statement parsing (PDF/CSV upload with reviewed, confidence-scored extraction — not live account aggregation) is unblocked once this v1 scope is reliable; Account Aggregator integration remains explicitly gated behind legal/compliance research, provider selection, and an independent security review, none of which have been done. An AI financial assistant is a separate later phase with its own [privacy and architecture proposal](./ai-assistant-proposal.md), gated behind the non-AI product being production-reliable, not merely feature-complete.
 - No collaborative editing/locking beyond simple household role-based access.
 - No tax-filing computation (may reference figures, does not file).
 - No investment advice / robo-advisory — projections are explicitly framed as assumptions, not recommendations (see [money-calculation-rules.md](./money-calculation-rules.md)).

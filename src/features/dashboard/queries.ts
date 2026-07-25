@@ -19,6 +19,7 @@ import {
 } from "@/features/expenses/queries";
 import { getIncomeTrend } from "@/features/income/queries";
 import { listAccounts } from "@/features/accounts/queries";
+import { fetchAllRows } from "@/lib/queries/pagination";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -158,18 +159,20 @@ export async function getAvailableBalance(
   householdId: string,
   baseCurrencyCode: string,
 ): Promise<AvailableBalance> {
-  const accountsPage = await listAccounts(
-    supabase,
-    householdId,
-    {},
-    { pageSize: 100 },
+  // Fetches every active account, not just the first 100 — see
+  // docs/performance-audit.md's "Net-worth calculation" finding: a single
+  // { pageSize: 100 } page silently truncates a household with more
+  // accounts than that, understating this total with no visible sign
+  // anything was dropped.
+  const { rows: accounts } = await fetchAllRows((pagination) =>
+    listAccounts(supabase, householdId, {}, pagination),
   );
 
   let total = createMoney(0, baseCurrencyCode);
   let accountCount = 0;
   let excludedAccountCount = 0;
 
-  for (const account of accountsPage.rows) {
+  for (const account of accounts) {
     if (account.currency_code !== baseCurrencyCode) {
       excludedAccountCount += 1;
       continue;

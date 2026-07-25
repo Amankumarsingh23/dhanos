@@ -130,7 +130,15 @@ export function RecurringManager({
         params.set(key, value);
       }
     }
-    params.delete("page");
+    // Any filter change resets to page 1 — but a call that's explicitly
+    // setting the page itself (the Previous/Next buttons) must not have
+    // that same value immediately deleted again (PROMPT 56 finding —
+    // this unconditional delete silently broke every "Next" button in
+    // the app: goToPage(n) calls updateParams({ page: String(n) }),
+    // which set it, then this line deleted it again immediately after).
+    if (!("page" in patch)) {
+      params.delete("page");
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -320,7 +328,7 @@ export function RecurringManager({
           action={<Button onClick={() => setCreateOpen(true)}>Add rule</Button>}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>

@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { NotFoundError, toUserMessage } from "@/lib/errors/app-error";
+import { NotFoundError } from "@/lib/errors/app-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import {
   actionError,
   actionOk,
@@ -70,7 +71,9 @@ export async function syncRemindersAction(
     revalidatePath("/app/reminders");
     return actionOk(undefined);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, "reminders.sync", { householdId }),
+    );
   }
 }
 
@@ -85,6 +88,7 @@ async function updateReminder(
     allowedRoles: [...WRITE_ROLES],
     schema: reminderIdSchema,
     input: { reminderId },
+    actionName: `reminders.${eventType}`,
     run: async ({ supabase, input: values }) => {
       const response = await supabase
         .from("reminders")

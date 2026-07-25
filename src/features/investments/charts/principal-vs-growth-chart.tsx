@@ -110,6 +110,7 @@ export function PrincipalVsGrowthChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -143,6 +144,7 @@ export function PrincipalVsGrowthChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="principalMinorUnits"
             name="principalMinorUnits"
             stackId="value"
@@ -150,6 +152,7 @@ export function PrincipalVsGrowthChart({
             radius={[2, 2, 0, 0]}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="growthMinorUnits"
             name="growthMinorUnits"
             stackId="value"

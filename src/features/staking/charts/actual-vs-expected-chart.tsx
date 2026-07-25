@@ -84,6 +84,7 @@ export function ActualVsExpectedChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -118,6 +119,7 @@ export function ActualVsExpectedChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="closingValueMinorUnits"
             name="closingValueMinorUnits"
@@ -126,6 +128,7 @@ export function ActualVsExpectedChart({
             dot={false}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="expectedValueMinorUnits"
             name="expectedValueMinorUnits"

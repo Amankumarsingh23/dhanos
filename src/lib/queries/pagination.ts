@@ -1,5 +1,6 @@
 import { ValidationError } from "@/lib/errors/app-error";
 import {
+  MAX_PAGE_SIZE,
   paginationInputSchema,
   type PaginationParams,
 } from "@/lib/validation/primitives";
@@ -59,6 +60,52 @@ export function toPage<T>(
     pageSize: params.pageSize,
     hasMore,
   };
+}
+
+/**
+ * A single `{ pageSize: MAX_PAGE_SIZE }` call reads as "fetch everything"
+ * but silently truncates once a household has more than 100 of that
+ * entity (see PROMPT 47's performance audit, docs/performance-audit.md
+ * §"Net-worth calculation" — confirmed live with 150 seeded accounts: a
+ * net-worth total computed this way undercounts by the 50 accounts past
+ * the cut, with no visible indication anything was dropped). An
+ * aggregate/total computation that needs "every row for this household"
+ * must page through with this helper instead of a single bounded call.
+ *
+ * Still bounded, not truly unbounded: `FETCH_ALL_ROWS_PAGE_CAP` (50 pages
+ * = 5,000 rows) is far beyond any realistic per-household entity count
+ * named in this app's own product scope (hundreds, not thousands, of
+ * accounts/assets/lendings/liabilities) — hitting it indicates a runaway
+ * or corrupt dataset, not normal usage, so callers get `truncated: true`
+ * back rather than an ever-growing query.
+ */
+export const FETCH_ALL_ROWS_PAGE_CAP = 50;
+
+/**
+ * Pages through every row for a household-scoped list query via repeated
+ * calls to `fetchPage` (typically a partially-applied `listX(supabase,
+ * householdId, filters, pagination)`), stopping at `hasMore: false` or the
+ * safety cap above. Only appropriate for aggregate/total computations
+ * (net worth, dashboard summaries, report roll-ups) — a paginated list
+ * *display* should keep using its own page directly, never this.
+ */
+export async function fetchAllRows<T>(
+  fetchPage: (pagination: {
+    page: number;
+    pageSize: number;
+  }) => Promise<Page<T>>,
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const rows: T[] = [];
+  let page = 1;
+  while (page <= FETCH_ALL_ROWS_PAGE_CAP) {
+    const result = await fetchPage({ page, pageSize: MAX_PAGE_SIZE });
+    rows.push(...result.rows);
+    if (!result.hasMore) {
+      return { rows, truncated: false };
+    }
+    page += 1;
+  }
+  return { rows, truncated: true };
 }
 
 export type SortDirection = "asc" | "desc";

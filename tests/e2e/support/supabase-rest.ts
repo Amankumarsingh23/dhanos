@@ -54,6 +54,73 @@ export async function restFetch(
   });
 }
 
+/**
+ * Inserts one row and returns it, using `Prefer: return=representation` —
+ * the same pattern already established in security-review.spec.ts's
+ * `setupVictimHousehold`. Throws with the response body on failure so a
+ * fixture-setup mistake fails loudly rather than producing a confusing
+ * `undefined` downstream.
+ */
+export async function restInsert<T = Record<string, unknown>>(
+  table: string,
+  accessToken: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const response = await restFetch(`/${table}`, accessToken, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Insert into ${table} failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  const [row] = (await response.json()) as [T];
+  return row;
+}
+
+/** Calls a Postgres RPC as the given user, returning the parsed response and the raw Response for status/error assertions. */
+export async function restRpc<T = unknown>(
+  name: string,
+  accessToken: string,
+  args: Record<string, unknown>,
+): Promise<{ response: Response; data: T | null; text: string }> {
+  const response = await restFetch(`/rpc/${name}`, accessToken, {
+    method: "POST",
+    body: JSON.stringify(args),
+  });
+  // Read the body exactly once — Response.text()/.json() both consume the
+  // stream, so a caller that also wants the raw text for a failure
+  // message (rather than re-reading) must get it from here.
+  const text = await response.text();
+  let data: T | null = null;
+  try {
+    data = text ? (JSON.parse(text) as T) : null;
+  } catch {
+    data = null;
+  }
+  return { response, data, text };
+}
+
+/** One of a household's auto-seeded default transaction categories (see seed_default_transaction_categories() — every household gets these on creation, so tests never need to create their own). */
+export async function getAnyCategoryId(
+  accessToken: string,
+  householdId: string,
+): Promise<string> {
+  const response = await restFetch(
+    `/transaction_categories?household_id=eq.${householdId}&limit=1&select=id`,
+    accessToken,
+  );
+  const [row] = (await response.json()) as [{ id: string }];
+  if (!row) {
+    throw new Error(
+      `No transaction_categories found for household ${householdId} — seed_default_transaction_categories() should have created them on household creation.`,
+    );
+  }
+  return row.id;
+}
+
 /** Calls get_or_create_household as the given user — see supabase/migrations/20260721051051_household_memberships.sql. */
 export async function createHousehold(
   accessToken: string,

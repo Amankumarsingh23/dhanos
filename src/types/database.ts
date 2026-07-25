@@ -1041,6 +1041,8 @@ export type Database = {
           base_currency_code: string;
           created_at: string;
           created_by: string | null;
+          default_goal_annual_expected_return: number;
+          default_goal_annual_inflation_rate: number;
           deleted_at: string | null;
           financial_month_start_day: number;
           id: string;
@@ -1052,6 +1054,8 @@ export type Database = {
           base_currency_code?: string;
           created_at?: string;
           created_by?: string | null;
+          default_goal_annual_expected_return?: number;
+          default_goal_annual_inflation_rate?: number;
           deleted_at?: string | null;
           financial_month_start_day?: number;
           id?: string;
@@ -1063,6 +1067,8 @@ export type Database = {
           base_currency_code?: string;
           created_at?: string;
           created_by?: string | null;
+          default_goal_annual_expected_return?: number;
+          default_goal_annual_inflation_rate?: number;
           deleted_at?: string | null;
           financial_month_start_day?: number;
           id?: string;
@@ -1071,6 +1077,125 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      import_batches: {
+        Row: {
+          column_mapping: Json;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          household_id: string;
+          id: string;
+          import_type: string;
+          imported_row_count: number;
+          original_filename: string;
+          rejected_row_count: number;
+          rolled_back_at: string | null;
+          skipped_row_count: number;
+          status: string;
+          stored_file_path: string | null;
+          total_row_count: number;
+        };
+        Insert: {
+          column_mapping?: Json;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          household_id: string;
+          id?: string;
+          import_type: string;
+          imported_row_count?: number;
+          original_filename: string;
+          rejected_row_count?: number;
+          rolled_back_at?: string | null;
+          skipped_row_count?: number;
+          status?: string;
+          stored_file_path?: string | null;
+          total_row_count?: number;
+        };
+        Update: {
+          column_mapping?: Json;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          household_id?: string;
+          id?: string;
+          import_type?: string;
+          imported_row_count?: number;
+          original_filename?: string;
+          rejected_row_count?: number;
+          rolled_back_at?: string | null;
+          skipped_row_count?: number;
+          status?: string;
+          stored_file_path?: string | null;
+          total_row_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      import_rows: {
+        Row: {
+          created_at: string;
+          created_entity_id: string | null;
+          created_entity_table: string | null;
+          duplicate_reason: string | null;
+          error_message: string | null;
+          household_id: string;
+          id: string;
+          import_batch_id: string;
+          raw_data: Json;
+          row_number: number;
+          status: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_entity_id?: string | null;
+          created_entity_table?: string | null;
+          duplicate_reason?: string | null;
+          error_message?: string | null;
+          household_id: string;
+          id?: string;
+          import_batch_id: string;
+          raw_data: Json;
+          row_number: number;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_entity_id?: string | null;
+          created_entity_table?: string | null;
+          duplicate_reason?: string | null;
+          error_message?: string | null;
+          household_id?: string;
+          id?: string;
+          import_batch_id?: string;
+          raw_data?: Json;
+          row_number?: number;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "import_rows_import_batch_id_fkey";
+            columns: ["import_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       income_sources: {
         Row: {
@@ -3283,6 +3408,11 @@ export type Database = {
           full_name: string | null;
           id: string;
           locale: string;
+          notifications_include_amounts: boolean;
+          privacy_conceal_dashboard_on_launch: boolean;
+          privacy_default_concealed: boolean;
+          privacy_inactivity_timeout_minutes: number | null;
+          privacy_screenshot_sensitive_mode: boolean;
           timezone: string;
           updated_at: string;
         };
@@ -3293,6 +3423,11 @@ export type Database = {
           full_name?: string | null;
           id: string;
           locale?: string;
+          notifications_include_amounts?: boolean;
+          privacy_conceal_dashboard_on_launch?: boolean;
+          privacy_default_concealed?: boolean;
+          privacy_inactivity_timeout_minutes?: number | null;
+          privacy_screenshot_sensitive_mode?: boolean;
           timezone?: string;
           updated_at?: string;
         };
@@ -3303,6 +3438,11 @@ export type Database = {
           full_name?: string | null;
           id?: string;
           locale?: string;
+          notifications_include_amounts?: boolean;
+          privacy_conceal_dashboard_on_launch?: boolean;
+          privacy_default_concealed?: boolean;
+          privacy_inactivity_timeout_minutes?: number | null;
+          privacy_screenshot_sensitive_mode?: boolean;
           timezone?: string;
           updated_at?: string;
         };
@@ -4233,6 +4373,10 @@ export type Database = {
       };
     };
     Functions: {
+      bulk_update_import_row_status: {
+        Args: { p_updates: Json };
+        Returns: undefined;
+      };
       create_asset: {
         Args: {
           p_acquisition_date: string;

@@ -108,9 +108,7 @@ export function DocumentsManager({
   const [searchValue, setSearchValue] = useState(filters.search);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DocumentRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DocumentRecord | null>(
-    null,
-  );
+  const [deleteTarget, setDeleteTarget] = useState<DocumentRecord | null>(null);
 
   function updateParams(patch: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -121,7 +119,15 @@ export function DocumentsManager({
         params.set(key, value);
       }
     }
-    params.delete("page");
+    // Any filter change resets to page 1 — but a call that's explicitly
+    // setting the page itself (the Previous/Next buttons) must not have
+    // that same value immediately deleted again (PROMPT 56 finding —
+    // this unconditional delete silently broke every "Next" button in
+    // the app: goToPage(n) calls updateParams({ page: String(n) }),
+    // which set it, then this line deleted it again immediately after).
+    if (!("page" in patch)) {
+      params.delete("page");
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -131,10 +137,7 @@ export function DocumentsManager({
   }
 
   async function handleView(document: DocumentRecord) {
-    const result = await getDocumentDownloadUrlAction(
-      householdId,
-      document.id,
-    );
+    const result = await getDocumentDownloadUrlAction(householdId, document.id);
     if (!result.ok) {
       toast.error(result.error);
       return;
@@ -198,9 +201,7 @@ export function DocumentsManager({
             aria-label="Filter by category"
             className="w-auto"
             value={filters.category}
-            onChange={(event) =>
-              updateParams({ category: event.target.value })
-            }
+            onChange={(event) => updateParams({ category: event.target.value })}
           >
             <option value="">All categories</option>
             {CATEGORY_OPTIONS.map(([value, label]) => (
@@ -235,13 +236,11 @@ export function DocumentsManager({
           title="No documents in the vault yet"
           description="Bank statements, salary slips, policies, tax documents, and other paperwork — stored privately, downloadable only via short-lived signed links."
           action={
-            <Button onClick={() => setCreateOpen(true)}>
-              Upload document
-            </Button>
+            <Button onClick={() => setCreateOpen(true)}>Upload document</Button>
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -292,9 +291,7 @@ export function DocumentsManager({
                   <td className="px-4 py-2.5">
                     <Badge
                       variant={
-                        document.status === "archived"
-                          ? "secondary"
-                          : "outline"
+                        document.status === "archived" ? "secondary" : "outline"
                       }
                     >
                       {document.status === "archived" ? "Archived" : "Active"}

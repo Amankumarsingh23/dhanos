@@ -90,6 +90,7 @@ export function ContributionVsValuationChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -125,6 +126,7 @@ export function ContributionVsValuationChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="contributionMinorUnits"
             name="contributionMinorUnits"
             stackId="value"
@@ -132,6 +134,7 @@ export function ContributionVsValuationChart({
             radius={[2, 2, 0, 0]}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="valuationChangeMinorUnits"
             name="valuationChangeMinorUnits"
             stackId="value"

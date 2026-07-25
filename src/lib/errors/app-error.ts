@@ -4,6 +4,7 @@ export type AppErrorCode =
   | "permission_denied"
   | "configuration_error"
   | "conflict"
+  | "rate_limited"
   | "unknown_error";
 
 /**
@@ -57,6 +58,17 @@ export class ConfigurationError extends AppError {
   constructor(message: string, cause?: unknown) {
     super(message, { code: "configuration_error", cause });
     this.name = "ConfigurationError";
+  }
+}
+
+/** Thrown when a caller has exceeded an endpoint-specific request quota (e.g. household data export — see docs/security-model.md §5/§6, "a full financial export is a high-value target"). */
+export class RateLimitError extends AppError {
+  constructor(
+    message = "Too many requests. Please try again later.",
+    cause?: unknown,
+  ) {
+    super(message, { code: "rate_limited", cause });
+    this.name = "RateLimitError";
   }
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -121,7 +122,7 @@ export const transactionSplitInputSchema = z.object({
   categoryId: uuidSchema,
   // A decimal string, converted to minor units in the Server Action —
   // same pattern as amounts elsewhere (see src/lib/money/index.ts).
-  amount: z.string().trim().min(1, "Enter an amount"),
+  amount: positiveDecimalAmountSchema("Enter an amount"),
   notes: notesSchema,
 });
 export type TransactionSplitInput = z.input<typeof transactionSplitInputSchema>;
@@ -131,7 +132,7 @@ const transactionFieldsSchema = z
     kind: transactionKindSchema,
     // A decimal string — see src/lib/money/index.ts's
     // parseDecimalToMinorUnits, applied in the Server Action.
-    amount: z.string().trim().min(1, "Enter an amount"),
+    amount: positiveDecimalAmountSchema("Enter an amount"),
     currencyCode: currencyCodeSchema,
     transactionDate: isoDateStringSchema,
     accountId: uuidSchema,
@@ -171,7 +172,7 @@ export type TransactionUpdateInput = z.input<typeof transactionUpdateSchema>;
  */
 export const refundInputSchema = z.object({
   originalTransactionId: uuidSchema,
-  amount: z.string().trim().min(1, "Enter a refund amount"),
+  amount: positiveDecimalAmountSchema("Enter a refund amount"),
   transactionDate: isoDateStringSchema,
   description: descriptionSchema,
 });

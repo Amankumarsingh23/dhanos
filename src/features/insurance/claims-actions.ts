@@ -1,12 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import {
-  NotFoundError,
-  ValidationError,
-  toUserMessage,
-} from "@/lib/errors/app-error";
+import { NotFoundError, ValidationError } from "@/lib/errors/app-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import { parseDecimalToMinorUnits } from "@/lib/money";
 import {
   actionError,
@@ -477,7 +474,12 @@ export async function getClaimDocumentsAction(
     );
     return actionOk(documents);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, "insurance.get_claim_documents", {
+        householdId,
+        claimId: parsed.data,
+      }),
+    );
   }
 }
 
@@ -514,6 +516,13 @@ export async function getClaimDocumentUrlAction(
     );
     return actionOk(url);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    // Never log `url` itself here — it's a short-lived signed download
+    // link (see docs/security-model.md §5 / docs/observability.md).
+    return actionError(
+      reportActionError(error, "insurance.get_claim_document_url", {
+        householdId,
+        attachmentId: parsed.data,
+      }),
+    );
   }
 }

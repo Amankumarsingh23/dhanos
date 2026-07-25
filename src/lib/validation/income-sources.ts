@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -146,7 +147,7 @@ export type IncomeSourceFilters = {
  */
 export const recordIncomeSchema = z.object({
   incomeSourceId: uuidSchema,
-  amount: z.string().trim().min(1, "Enter an amount"),
+  amount: positiveDecimalAmountSchema("Enter an amount"),
   transactionDate: isoDateStringSchema,
   accountId: optionalUuidSchema,
   categoryId: optionalUuidSchema,

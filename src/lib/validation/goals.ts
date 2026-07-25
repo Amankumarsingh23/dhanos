@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -132,7 +133,7 @@ const goalFieldsSchema = z.object({
     .min(1, "Name is required")
     .max(200, "Name is too long"),
   goalType: goalTypeSchema,
-  targetAmount: z.string().trim().min(1, "Enter the target amount"),
+  targetAmount: positiveDecimalAmountSchema("Enter the target amount"),
   currencyCode: currencyCodeSchema,
   targetDate: isoDateStringSchema,
   manualCurrentSavedAmount: z.string().trim().max(30).nullable().optional(),

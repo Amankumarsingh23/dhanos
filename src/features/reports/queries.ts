@@ -38,7 +38,7 @@ import { getCurrentNetWorthBreakdown, getNetWorthChartsData } from "@/features/n
 import { listLendings } from "@/features/lending/queries";
 import { listGoals } from "@/features/goals/queries";
 import { getEmergencyFundPlanDetail } from "@/features/emergency-fund/queries";
-import { MAX_PAGE_SIZE } from "@/lib/validation/primitives";
+import { fetchAllRows } from "@/lib/queries/pagination";
 import {
   groupDebtByType,
   type DebtGroupRow,
@@ -443,12 +443,20 @@ export async function getSipConsistencyReport(
   const { dateFrom, dateTo } = resolveDateRange(filters, asOfDate, 6);
   const currencyCode = household.base_currency_code;
 
-  const [sipsPage, contributions] = await Promise.all([
-    listSips(supabase, household.id, { status: "active" }, { pageSize: MAX_PAGE_SIZE }, asOfDate),
+  const [sipsResult, contributions] = await Promise.all([
+    fetchAllRows((pagination) =>
+      listSips(
+        supabase,
+        household.id,
+        { status: "active" },
+        pagination,
+        asOfDate,
+      ),
+    ),
     getCompletedSipContributions(supabase, household.id, dateFrom, dateTo),
   ]);
 
-  const sips = sipsPage.rows
+  const sips = sipsResult.rows
     .filter((sip) => sip.currency_code === currencyCode)
     .map((sip) => ({
       id: sip.id,
@@ -744,13 +752,10 @@ export async function getInsuranceCoverageReport(
   asOfDate: string,
 ): Promise<InsuranceCoverageReport> {
   const currencyCode = household.base_currency_code;
-  const page = await listPolicies(
-    supabase,
-    household.id,
-    { status: "active" },
-    { pageSize: MAX_PAGE_SIZE },
+  const { rows: allPolicies } = await fetchAllRows((pagination) =>
+    listPolicies(supabase, household.id, { status: "active" }, pagination),
   );
-  let policies = page.rows.filter((policy) => policy.currency_code === currencyCode);
+  let policies = allPolicies.filter((policy) => policy.currency_code === currencyCode);
   if (filters.institutionId) {
     policies = policies.filter(
       (policy) => policy.insurer_institution_id === filters.institutionId,
@@ -901,13 +906,10 @@ export async function getLendingExposureReport(
   asOfDate: string,
 ): Promise<LendingExposureReport> {
   const currencyCode = household.base_currency_code;
-  const page = await listLendings(
-    supabase,
-    household.id,
-    {},
-    { pageSize: MAX_PAGE_SIZE },
+  const { rows: allLendings } = await fetchAllRows((pagination) =>
+    listLendings(supabase, household.id, {}, pagination),
   );
-  let lendings = page.rows;
+  let lendings = allLendings;
   if (filters.personId) {
     lendings = lendings.filter((lending) => lending.borrower_person_id === filters.personId);
   }
@@ -988,14 +990,10 @@ export async function getGoalReadinessReport(
   asOfDate: string,
 ): Promise<GoalReadinessReport> {
   const currencyCode = household.base_currency_code;
-  const page = await listGoals(
-    supabase,
-    household.id,
-    { status: "active" },
-    { pageSize: MAX_PAGE_SIZE },
-    asOfDate,
+  const { rows: allGoals } = await fetchAllRows((pagination) =>
+    listGoals(supabase, household.id, { status: "active" }, pagination, asOfDate),
   );
-  let goals = page.rows.filter((goal) => goal.currency_code === currencyCode);
+  let goals = allGoals.filter((goal) => goal.currency_code === currencyCode);
   if (filters.personId) {
     goals = goals.filter((goal) =>
       goal.responsiblePeople.some((person) => person.personId === filters.personId),

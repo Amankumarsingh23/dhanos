@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 import { transactionStatusSchema } from "@/lib/validation/transactions";
@@ -111,7 +112,7 @@ const recurringRuleFieldsSchema = z
   .object({
     name: nameSchema,
     kind: recurringRuleKindSchema,
-    amount: z.string().trim().min(1, "Enter an amount"),
+    amount: positiveDecimalAmountSchema("Enter an amount"),
     currencyCode: currencyCodeSchema,
     accountId: uuidSchema,
     transferAccountId: optionalUuidSchema,
@@ -164,7 +165,7 @@ export type RecurringRuleFilters = {
 export const scheduleAmountChangeSchema = z.object({
   recurringRuleId: uuidSchema,
   effectiveDate: isoDateStringSchema,
-  newAmount: z.string().trim().min(1, "Enter the new amount"),
+  newAmount: positiveDecimalAmountSchema("Enter the new amount"),
 });
 export type ScheduleAmountChangeInput = z.input<
   typeof scheduleAmountChangeSchema
@@ -174,7 +175,7 @@ export type ScheduleAmountChangeInput = z.input<
 export const recordOccurrenceSchema = z.object({
   recurringRuleId: uuidSchema,
   transactionDate: isoDateStringSchema,
-  amount: z.string().trim().min(1, "Enter an amount"),
+  amount: positiveDecimalAmountSchema("Enter an amount"),
   status: transactionStatusSchema.exclude(["cancelled"]).default("cleared"),
   description: z.string().trim().max(500).nullable().optional(),
 });

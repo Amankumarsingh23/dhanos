@@ -51,8 +51,14 @@ type GoalDialogProps = {
   accounts: AccountOption[];
   investmentHoldings: InvestmentHoldingOption[];
   people: PersonOption[];
+  /** Household defaults (Settings — PROMPT 40) prefilling a *new* goal's assumption fields only; an existing goal's own stored assumption always wins, so an edit-only call site can omit these. */
+  defaultAnnualInflationRate?: number;
+  defaultAnnualExpectedReturn?: number;
   onSaved?: () => void;
 };
+
+const FALLBACK_ANNUAL_INFLATION_RATE = 0.06;
+const FALLBACK_ANNUAL_EXPECTED_RETURN = 0;
 
 const GOAL_TYPE_OPTIONS = Object.entries(GOAL_TYPE_LABELS) as [
   GoalType,
@@ -74,7 +80,11 @@ function toDecimalString(
   return (amountMinorUnits / 10 ** minorUnitExponent(currencyCode)).toString();
 }
 
-function toDefaultValues(goal?: GoalRow | null): CreateGoalInput {
+function toDefaultValues(
+  goal: GoalRow | null | undefined,
+  defaultAnnualInflationRate: number,
+  defaultAnnualExpectedReturn: number,
+): CreateGoalInput {
   return {
     name: goal?.name ?? "",
     goalType: (goal?.goal_type as GoalType) ?? "emergency_fund",
@@ -89,8 +99,8 @@ function toDefaultValues(goal?: GoalRow | null): CreateGoalInput {
           goal.currency_code,
         )
       : "",
-    annualInflationRate: goal?.annual_inflation_rate ?? 0.06,
-    annualExpectedReturn: goal?.annual_expected_return ?? 0,
+    annualInflationRate: goal?.annual_inflation_rate ?? defaultAnnualInflationRate,
+    annualExpectedReturn: goal?.annual_expected_return ?? defaultAnnualExpectedReturn,
     priority: (goal?.priority as GoalPriority) ?? "medium",
     flexibility: (goal?.flexibility as GoalFlexibility) ?? "somewhat_flexible",
     notes: goal?.notes ?? null,
@@ -116,6 +126,8 @@ export function GoalDialog({
   accounts,
   investmentHoldings,
   people,
+  defaultAnnualInflationRate = FALLBACK_ANNUAL_INFLATION_RATE,
+  defaultAnnualExpectedReturn = FALLBACK_ANNUAL_EXPECTED_RETURN,
   onSaved,
 }: GoalDialogProps) {
   const isEditing = Boolean(goal);
@@ -132,7 +144,11 @@ export function GoalDialog({
     formState: { errors },
   } = useForm<CreateGoalInput>({
     resolver: zodResolver(isEditing ? updateGoalSchema : createGoalSchema),
-    defaultValues: toDefaultValues(goal),
+    defaultValues: toDefaultValues(
+      goal,
+      defaultAnnualInflationRate,
+      defaultAnnualExpectedReturn,
+    ),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -142,9 +158,15 @@ export function GoalDialog({
 
   useEffect(() => {
     if (open) {
-      reset(toDefaultValues(goal));
+      reset(
+        toDefaultValues(
+          goal,
+          defaultAnnualInflationRate,
+          defaultAnnualExpectedReturn,
+        ),
+      );
     }
-  }, [open, goal, reset]);
+  }, [open, goal, reset, defaultAnnualInflationRate, defaultAnnualExpectedReturn]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {

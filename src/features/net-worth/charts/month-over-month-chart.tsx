@@ -89,6 +89,7 @@ export function MonthOverMonthChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 20, right: 8, left: 0, bottom: 0 }}
         >
@@ -115,7 +116,12 @@ export function MonthOverMonthChart({
           />
           <ReferenceLine y={0} className="stroke-border" />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
-          <Bar dataKey="changeMinorUnits" radius={[4, 4, 4, 4]} maxBarSize={40}>
+          <Bar
+            isAnimationActive={false}
+            dataKey="changeMinorUnits"
+            radius={[4, 4, 4, 4]}
+            maxBarSize={40}
+          >
             {data.map((row) => (
               <Cell
                 key={row.monthKey}

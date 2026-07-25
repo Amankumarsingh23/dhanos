@@ -13,7 +13,7 @@ import {
   type ActionResult,
 } from "@/lib/mutations";
 import { requireHouseholdRole } from "@/lib/households/permissions";
-import { toUserMessage } from "@/lib/errors/app-error";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/primitives";
 import {
@@ -489,6 +489,12 @@ export async function getExpenseReceiptUrlAction(
     );
     return actionOk(url);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    // Never log `url` itself — it's a short-lived signed download link.
+    return actionError(
+      reportActionError(error, "expenses.get_receipt_url", {
+        householdId,
+        attachmentId: parsed.data,
+      }),
+    );
   }
 }

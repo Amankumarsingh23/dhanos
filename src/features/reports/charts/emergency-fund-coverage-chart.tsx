@@ -73,7 +73,8 @@ export function EmergencyFundCoverageChart({
     },
   ];
 
-  const isEmpty = liquidEmergencyMoneyMinorUnits === 0 && targetAmountMinorUnits === 0;
+  const isEmpty =
+    liquidEmergencyMoneyMinorUnits === 0 && targetAmountMinorUnits === 0;
 
   const coverageText =
     monthsOfCoverage === null
@@ -93,6 +94,7 @@ export function EmergencyFundCoverageChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           layout="vertical"
           margin={{ top: 8, right: 24, left: 8, bottom: 0 }}
@@ -131,9 +133,7 @@ export function EmergencyFundCoverageChart({
               <Cell
                 key={row.label}
                 fill={
-                  row.isTarget
-                    ? "var(--color-chart-5)"
-                    : "var(--color-chart-2)"
+                  row.isTarget ? "var(--color-chart-5)" : "var(--color-chart-2)"
                 }
               />
             ))}

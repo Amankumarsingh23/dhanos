@@ -8,6 +8,7 @@ import {
   monthKeySchema,
   nonZeroAmountMinorUnitsSchema,
   paginationInputSchema,
+  positiveDecimalAmountSchema,
   transactionDateSchema,
   uuidSchema,
   valuationDateSchema,
@@ -46,6 +47,32 @@ describe("nonZeroAmountMinorUnitsSchema", () => {
 
   it("accepts a non-zero amount", () => {
     expect(nonZeroAmountMinorUnitsSchema.safeParse(-500).success).toBe(true);
+  });
+});
+
+describe("positiveDecimalAmountSchema", () => {
+  const schema = positiveDecimalAmountSchema("Enter an amount");
+
+  it("accepts a positive decimal string", () => {
+    expect(schema.safeParse("100.50").success).toBe(true);
+  });
+
+  it("rejects a negative decimal string — PROMPT 45 security review finding", () => {
+    const result = schema.safeParse("-100.50");
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty string with the caller's own message", () => {
+    const result = schema.safeParse("");
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe("Enter an amount");
+    }
+  });
+
+  it("trims surrounding whitespace before checking sign", () => {
+    expect(schema.safeParse("  100  ").success).toBe(true);
+    expect(schema.safeParse("  -100  ").success).toBe(false);
   });
 });
 

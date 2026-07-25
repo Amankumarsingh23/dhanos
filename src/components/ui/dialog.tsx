@@ -51,10 +51,26 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  // Radix only knows how to restore focus to the element that opened the
+  // dialog when that element is an actual DialogTrigger — every dialog in
+  // this app is opened by a plain, externally-controlled Button instead
+  // (a "Manager" page's own button drives an open/onOpenChange prop on a
+  // separate XDialog component), so Radix has no trigger reference to
+  // restore focus to and it falls through to the browser's default:
+  // <body>, silently losing a keyboard/screen-reader user's place after
+  // every single dialog close (PROMPT 44 — "core journeys work without a
+  // mouse"). onOpenAutoFocus fires before Radix moves focus into the
+  // dialog, so document.activeElement there is still the real opener;
+  // stash it and restore it explicitly on close instead of relying on
+  // Radix's trigger-only default.
+  const openerRef = React.useRef<HTMLElement | null>(null);
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -64,6 +80,18 @@ function DialogContent({
           "bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm",
           className,
         )}
+        onOpenAutoFocus={(event) => {
+          openerRef.current = document.activeElement as HTMLElement | null;
+          onOpenAutoFocus?.(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current;
+          if (opener && opener !== document.body && document.contains(opener)) {
+            event.preventDefault();
+            opener.focus();
+          }
+          onCloseAutoFocus?.(event);
+        }}
         {...props}
       >
         {children}

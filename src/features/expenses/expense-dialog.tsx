@@ -366,7 +366,7 @@ export function ExpenseDialog({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Category</Label>
+              <Label htmlFor="categoryId">Category</Label>
               <label className="text-muted-foreground flex items-center gap-2 text-xs">
                 <input
                   type="checkbox"

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 import { investmentAssetClassSchema } from "@/lib/validation/investments";
@@ -76,7 +77,9 @@ const stakingPositionFieldsSchema = z
     investmentAccountId: z.string().min(1, "Select or create a platform"),
     newPlatformName: z.string().trim().max(200).nullable().optional(),
     newPlatformInstitutionId: uuidSchema.nullable().optional(),
-    openingPrincipal: z.string().trim().min(1, "Enter the opening principal"),
+    openingPrincipal: positiveDecimalAmountSchema(
+      "Enter the opening principal",
+    ),
     openingDate: isoDateStringSchema,
     currencyCode: currencyCodeSchema,
     // A whole-number-style percentage input (e.g. "0.05" for 0.05%/day) —
@@ -150,11 +153,11 @@ export type StakingStatusActionInput = z.input<
 export const recordStakingSnapshotSchema = z.object({
   stakingPositionId: uuidSchema,
   snapshotDate: isoDateStringSchema,
-  openingValue: z.string().trim().min(1, "Enter the opening value"),
+  openingValue: positiveDecimalAmountSchema("Enter the opening value"),
   contribution: z.string().trim().min(1).default("0"),
   withdrawal: z.string().trim().min(1).default("0"),
   fee: z.string().trim().min(1).default("0"),
-  closingValue: z.string().trim().min(1, "Enter the closing value"),
+  closingValue: positiveDecimalAmountSchema("Enter the closing value"),
   manuallyConfirmed: z.boolean().default(true),
   source: stakingSnapshotSourceSchema.default("manual"),
   notes: notesSchema,

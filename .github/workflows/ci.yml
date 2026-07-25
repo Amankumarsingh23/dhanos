@@ -1,0 +1,192 @@
+name: CI
+
+# Deliberately `pull_request` (not `pull_request_target`): a fork PR's
+# workflow run gets a read-only GITHUB_TOKEN and zero access to repo
+# secrets under this event, checking out the PR's own code rather than
+# running untrusted code with the base repo's privileges. See
+# docs/ci-cd.md's "No production credentials" section.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  # Fast feedback: install, type check, lint, unit tests, production build.
+  # No Docker, no Supabase, no real or realistic credentials — the app's
+  # own env validation (src/lib/env/*.ts) only checks *shape* (a URL, a
+  # non-empty string), never reachability, so a fixed placeholder value is
+  # enough to get through a build. Nothing here is a production credential.
+  checks:
+    name: Install, typecheck, lint, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      # Fails outright if pnpm-lock.yaml is missing or out of sync with
+      # package.json — "lockfile installation" as a CI gate, not just a
+      # local-dev convention.
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: >
+          pnpm exec vitest run
+          --reporter=default --reporter=junit
+          --outputFile.junit=./test-results/unit-results.xml
+
+      - name: Upload unit test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results/
+          retention-days: 14
+
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Production build
+        run: pnpm build
+
+  # Migration validation, generated-type consistency, and Playwright — all
+  # bundled into one job because they share the one thing that's expensive
+  # to set up: a live local Supabase stack. Runs only after `checks`
+  # passes, so a broken lockfile/typecheck/lint/unit/build never wastes
+  # time booting Docker. "Safe": read-only GITHUB_TOKEN permissions (same
+  # as `checks`), and — like `checks` — uses no GitHub secret at all. Every
+  # credential here is generated fresh by the local Supabase CLI for this
+  # run only (see docs/local-supabase.md's own "these are well-known local
+  # dev defaults, never a real environment" note) and is discarded with the
+  # runner. See docs/ci-cd.md.
+  integration:
+    name: Migrations, generated types, Playwright (integration)
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # ubuntu-latest ships Docker preinstalled — no service container
+      # needed, `supabase start` manages its own containers directly.
+      - name: Start local Supabase
+        run: pnpm db:start
+
+      # "Migration validation": supabase/migrations/* applied in order
+      # against a fresh database, then supabase/seed.sql — the exact same
+      # command docs/local-supabase.md tells a developer to run "before
+      # considering a migration change done". A failing migration fails
+      # this step, not silently later.
+      - name: Validate migrations (db reset)
+        run: pnpm db:reset
+
+      # "Generated-type consistency check": regenerate src/types/database.ts
+      # from the schema that was just proven to apply cleanly above, and
+      # fail if it doesn't match what's committed — a stale generated-types
+      # file after a migration is a real bug class this repo has hit before
+      # (see docs/testing.md §3).
+      - name: Check generated types match the schema
+        run: |
+          pnpm db:types
+          if ! git diff --exit-code -- src/types/database.ts; then
+            echo "::error::src/types/database.ts is out of date — run 'pnpm db:types' and commit the result."
+            exit 1
+          fi
+
+      # Test-only, ephemeral, local-only credentials for THIS run — read
+      # back from the Supabase CLI's own status output, never hardcoded and
+      # never a real secret (see the job-level comment above and
+      # docs/ci-cd.md). Mirrors exactly what docs/local-supabase.md tells a
+      # developer to paste into their own .env.local by hand.
+      - name: Write test-only Supabase env (.env.local)
+        run: |
+          STATUS=$(pnpm exec supabase status -o json 2>/dev/null)
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(echo "$STATUS" | jq -r '.API_URL')"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(echo "$STATUS" | jq -r '.PUBLISHABLE_KEY')"
+            echo "NEXT_PUBLIC_APP_URL=http://localhost:3000"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS" | jq -r '.SECRET_KEY')"
+          } > .env.local
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright (Chromium only — see playwright.config.ts)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Playwright's own webServer config runs `pnpm build && pnpm start`
+      # against .env.local above and waits for it before testing — see
+      # playwright.config.ts. `reuseExistingServer: !process.env.CI` means
+      # this always does a fresh build/start here (CI=true is set by
+      # GitHub Actions automatically).
+      - name: Integration/e2e tests (Playwright)
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm db:stop

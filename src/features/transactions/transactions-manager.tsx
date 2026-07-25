@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftRightIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
@@ -77,6 +77,13 @@ export function TransactionsManager({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // See src/features/accounts/accounts-manager.tsx's identical comment
+  // (PROMPT 55 finding) — this checkbox is bound to a URL-searchParam-
+  // driven prop that only updates once the navigation completes, so
+  // without useOptimistic it stays visually unchecked for the entire
+  // round trip after being clicked under any real network latency.
+  const [optimisticIncludeCancelled, setOptimisticIncludeCancelled] =
+    useOptimistic(filters.includeCancelled);
 
   const [searchValue, setSearchValue] = useState(filters.search);
   const [createOpen, setCreateOpen] = useState(false);
@@ -96,7 +103,15 @@ export function TransactionsManager({
         params.set(key, value);
       }
     }
-    params.delete("page");
+    // Any filter change resets to page 1 — but a call that's explicitly
+    // setting the page itself (the Previous/Next buttons) must not have
+    // that same value immediately deleted again (PROMPT 56 finding —
+    // this unconditional delete silently broke every "Next" button in
+    // the app: goToPage(n) calls updateParams({ page: String(n) }),
+    // which set it, then this line deleted it again immediately after).
+    if (!("page" in patch)) {
+      params.delete("page");
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -211,12 +226,14 @@ export function TransactionsManager({
         <label className="text-muted-foreground flex items-center gap-2 text-sm">
           <input
             type="checkbox"
-            checked={filters.includeCancelled}
-            onChange={(event) =>
-              updateParams({
-                cancelled: event.target.checked ? "true" : undefined,
-              })
-            }
+            checked={optimisticIncludeCancelled}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              startTransition(() => {
+                setOptimisticIncludeCancelled(checked);
+                updateParams({ cancelled: checked ? "true" : undefined });
+              });
+            }}
             className="border-input size-4 rounded"
           />
           Show cancelled
@@ -233,7 +250,7 @@ export function TransactionsManager({
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>

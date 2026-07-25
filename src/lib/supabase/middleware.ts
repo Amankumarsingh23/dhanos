@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 import { clientEnv } from "@/lib/env/client";
 import { getSafeRedirectPath } from "@/lib/auth/safe-redirect";
+import { REQUEST_ID_HEADER } from "@/lib/observability/constants";
 
 /**
  * Routes usable without a session. Everything else is treated as
@@ -25,7 +26,22 @@ const AUTH_ONLY_PATHS = new Set(["/login", "/signup", "/forgot-password"]);
  * screen, and vice versa.
  */
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  // Correlation ID (see docs/observability.md) — generated fresh per
+  // request rather than trusting a client-supplied one, set on both the
+  // outgoing request (so `headers()` in a Server Component/Action/Route
+  // Handler downstream can read it via getRequestId()) and the response
+  // (so it's visible to the caller for support/debugging). Never derived
+  // from anything client-controlled.
+  const requestId = crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(REQUEST_ID_HEADER, requestId);
+  const nextInit = { request: { headers: requestHeaders } };
+  function attachRequestId<T extends NextResponse>(response: T): T {
+    response.headers.set(REQUEST_ID_HEADER, requestId);
+    return response;
+  }
+
+  let supabaseResponse = NextResponse.next(nextInit);
 
   const supabase = createServerClient<Database>(
     clientEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -39,7 +55,7 @@ export async function updateSession(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next(nextInit);
           for (const { name, value, options } of cookiesToSet) {
             supabaseResponse.cookies.set(name, value, options);
           }
@@ -62,7 +78,15 @@ export async function updateSession(request: NextRequest) {
   // The callback route exchanges its own code/token — it must run
   // regardless of session state, and isn't a page to redirect to/from.
   if (pathname === "/auth/callback") {
-    return supabaseResponse;
+    return attachRequestId(supabaseResponse);
+  }
+
+  // API routes handle their own auth (or are deliberately public, like
+  // /api/health — see docs/observability.md) rather than redirecting to a
+  // login page, which would break a non-browser caller (an uptime
+  // monitor, a fetch from a Server Component).
+  if (pathname.startsWith("/api/")) {
+    return attachRequestId(supabaseResponse);
   }
 
   // Only reachable meaningfully via a recovery link's session — no session
@@ -72,9 +96,9 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/forgot-password";
       url.search = "";
-      return NextResponse.redirect(url);
+      return attachRequestId(NextResponse.redirect(url));
     }
-    return supabaseResponse;
+    return attachRequestId(supabaseResponse);
   }
 
   if (user && AUTH_ONLY_PATHS.has(pathname)) {
@@ -83,19 +107,19 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.searchParams.get("next"),
     );
     url.search = "";
-    return NextResponse.redirect(url);
+    return attachRequestId(NextResponse.redirect(url));
   }
 
   if (!user && !PUBLIC_PATHS.has(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
-    return NextResponse.redirect(url);
+    return attachRequestId(NextResponse.redirect(url));
   }
 
   // IMPORTANT: you *must* return the supabaseResponse object as it is, not
   // a new response — if you need to build one, copy over
   // request/response cookies as this function does above, or sessions will
   // randomly appear to expire.
-  return supabaseResponse;
+  return attachRequestId(supabaseResponse);
 }

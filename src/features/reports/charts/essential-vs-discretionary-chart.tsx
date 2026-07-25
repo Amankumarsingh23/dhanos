@@ -72,7 +72,10 @@ export function EssentialVsDiscretionaryChart({
     { bucket: "Discretionary", amountMinorUnits: discretionaryMinorUnits },
   ];
   if (unclassifiedMinorUnits > 0) {
-    chartData.push({ bucket: "Unclassified", amountMinorUnits: unclassifiedMinorUnits });
+    chartData.push({
+      bucket: "Unclassified",
+      amountMinorUnits: unclassifiedMinorUnits,
+    });
   }
 
   const isEmpty =
@@ -81,7 +84,9 @@ export function EssentialVsDiscretionaryChart({
     unclassifiedMinorUnits === 0;
 
   const accessibleSummary = `Essential versus discretionary spending, ${dateRangeLabel}: ${chartData
-    .map((row) => `${row.bucket} — ${money(row.amountMinorUnits, currencyCode)}`)
+    .map(
+      (row) => `${row.bucket} — ${money(row.amountMinorUnits, currencyCode)}`,
+    )
     .join("; ")}.`;
 
   return (
@@ -96,6 +101,7 @@ export function EssentialVsDiscretionaryChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           layout="vertical"
           margin={{ top: 8, right: 24, left: 8, bottom: 0 }}

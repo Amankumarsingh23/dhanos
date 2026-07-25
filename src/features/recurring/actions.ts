@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NotFoundError, ValidationError } from "@/lib/errors/app-error";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
 import { parseDecimalToMinorUnits } from "@/lib/money";
 import { toIsoDateString } from "@/lib/dates";
@@ -13,7 +14,6 @@ import {
   type ActionResult,
 } from "@/lib/mutations";
 import { requireHouseholdRole } from "@/lib/households/permissions";
-import { toUserMessage } from "@/lib/errors/app-error";
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/primitives";
 import {
@@ -668,6 +668,10 @@ export async function generateDueOccurrencesAction(
 
     return actionOk({ generatedCount });
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, "recurring.generate_due_occurrences", {
+        householdId,
+      }),
+    );
   }
 }

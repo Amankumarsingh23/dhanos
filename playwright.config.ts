@@ -12,7 +12,11 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // "on-first-retry" never fires locally (retries: 0 outside CI), so a
+    // failure on the only local attempt would leave no trace at all —
+    // "retain-on-failure" captures one for every failed test, first
+    // attempt or not, and deletes it for passing tests either way.
+    trace: "retain-on-failure",
   },
   projects: [
     {

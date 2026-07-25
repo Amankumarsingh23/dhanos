@@ -26,6 +26,11 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 /** A staking position's snapshot is expected daily — stale after this much shorter window than a periodic investment valuation (PROMPT 18 used 45 days; a daily-tracked position is stale after just 2). */
 const SNAPSHOT_STALE_AFTER_HOURS = 48;
 
+/** Matches supabase/config.toml's PostgREST `max_rows` — see getDailyValueSeries. */
+const SNAPSHOT_FETCH_PAGE_SIZE = 1000;
+/** 50,000 rows — far beyond any realistic household's total staking snapshot history. */
+const SNAPSHOT_FETCH_PAGE_CAP = 50;
+
 type RawPositionRow = StakingPositionRecord & {
   investment_holdings: {
     investment_assets: { name: string; asset_class: string } | null;
@@ -312,17 +317,36 @@ export async function getDailyValueSeries(
   );
   const positionIds = positions.map((p) => p.id);
 
-  let allSnapshots: StakingSnapshotRecord[] = [];
+  // Paged explicitly rather than one unbounded .select(): PostgREST's
+  // own row cap (supabase/config.toml's `max_rows = 1000`) silently
+  // truncates any query beyond that many rows — confirmed live in
+  // PROMPT 47's performance audit with 5 positions × 3 years of daily
+  // snapshots (5,475 rows): the unbounded form above returned only the
+  // OLDEST 1,000 rows (2023-01-02 through 2023-07-20), so a "trailing
+  // days ending today" series built from it silently never reached
+  // anywhere near today. See docs/performance-audit.md, "Charts" /
+  // staking daily value series.
+  const allSnapshots: StakingSnapshotRecord[] = [];
   if (positionIds.length > 0) {
-    const snapshotsResult = await supabase
-      .from("staking_daily_snapshots_current")
-      .select("*")
-      .eq("household_id", householdId)
-      .in("staking_position_id", positionIds)
-      .order("snapshot_date", { ascending: true });
-    allSnapshots = unwrapList(
-      snapshotsResult,
-    ) as unknown as StakingSnapshotRecord[];
+    for (let page = 0; page < SNAPSHOT_FETCH_PAGE_CAP; page += 1) {
+      const from = page * SNAPSHOT_FETCH_PAGE_SIZE;
+      const to = from + SNAPSHOT_FETCH_PAGE_SIZE - 1;
+      const snapshotsResult = await supabase
+        .from("staking_daily_snapshots_current")
+        .select("*")
+        .eq("household_id", householdId)
+        .in("staking_position_id", positionIds)
+        .order("snapshot_date", { ascending: true })
+        .order("staking_position_id", { ascending: true })
+        .range(from, to);
+      const rows = unwrapList(
+        snapshotsResult,
+      ) as unknown as StakingSnapshotRecord[];
+      allSnapshots.push(...rows);
+      if (rows.length < SNAPSHOT_FETCH_PAGE_SIZE) {
+        break;
+      }
+    }
   }
 
   const snapshotsByPosition = new Map<string, StakingSnapshotRecord[]>();
@@ -334,11 +358,21 @@ export async function getDailyValueSeries(
 
   const days = buildDayRange(asOfDate, daysBack);
 
-  // Running per-position "latest known closing value" pointer, advanced
-  // as we walk the day range forward — avoids re-scanning each position's
-  // full history for every single day.
+  // Running per-position pointers, all advanced together as we walk the
+  // day range forward once — avoids re-scanning each position's full
+  // snapshot history for every single day. Originally the three
+  // cumulative sums below re-scanned from the start of each position's
+  // history on every iteration (O(days × total history) — confirmed live
+  // in PROMPT 47's performance audit at 5 positions × 3 years of daily
+  // snapshots: ~5x slower than this pointer-based version for the same
+  // output, see docs/performance-audit.md). Carrying a running total
+  // per position, the same way `lastKnownClosing` already did, makes
+  // this O(days + total history) instead.
   const lastKnownClosing = new Map<string, number>();
   const snapshotIndexByPosition = new Map<string, number>();
+  const cumulativeContributedByPosition = new Map<string, number>();
+  const cumulativeRewardsByPosition = new Map<string, number>();
+  const cumulativeWithdrawalsByPosition = new Map<string, number>();
 
   return days.map((date) => {
     let closingValue = 0;
@@ -352,28 +386,31 @@ export async function getDailyValueSeries(
     for (const position of positions) {
       const snapshots = snapshotsByPosition.get(position.id) ?? [];
       let index = snapshotIndexByPosition.get(position.id) ?? 0;
+      let positionContributed =
+        cumulativeContributedByPosition.get(position.id) ?? 0;
+      let positionRewards = cumulativeRewardsByPosition.get(position.id) ?? 0;
+      let positionWithdrawals =
+        cumulativeWithdrawalsByPosition.get(position.id) ?? 0;
       while (
         index < snapshots.length &&
         snapshots[index]!.snapshot_date <= date
       ) {
         const snapshot = snapshots[index]!;
         lastKnownClosing.set(position.id, snapshot.closing_value_minor_units);
+        positionContributed += snapshot.contribution_minor_units;
+        positionRewards += snapshot.reward_minor_units;
+        positionWithdrawals += snapshot.withdrawal_minor_units;
         hasAnySnapshot = true;
         index += 1;
       }
       snapshotIndexByPosition.set(position.id, index);
+      cumulativeContributedByPosition.set(position.id, positionContributed);
+      cumulativeRewardsByPosition.set(position.id, positionRewards);
+      cumulativeWithdrawalsByPosition.set(position.id, positionWithdrawals);
       closingValue += lastKnownClosing.get(position.id) ?? 0;
-
-      // Cumulative sums recompute over the snapshots up to `date` — cheap
-      // given a personal app's realistic snapshot volume, and simpler/
-      // more obviously correct than trying to maintain three more running
-      // pointers alongside the closing-value one above.
-      for (const snapshot of snapshots) {
-        if (snapshot.snapshot_date > date) break;
-        cumulativeContributed += snapshot.contribution_minor_units;
-        cumulativeRewards += snapshot.reward_minor_units;
-        cumulativeWithdrawals += snapshot.withdrawal_minor_units;
-      }
+      cumulativeContributed += positionContributed;
+      cumulativeRewards += positionRewards;
+      cumulativeWithdrawals += positionWithdrawals;
 
       if (
         position.expected_daily_rate !== null &&

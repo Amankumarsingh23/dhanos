@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -105,7 +106,7 @@ export const moneyDrainFieldsSchema = z.object({
     .max(200, "Name is too long"),
   drainType: drainTypeSchema,
   costFrequency: drainCostFrequencySchema,
-  costAmount: z.string().trim().min(1, "Enter the cost"),
+  costAmount: positiveDecimalAmountSchema("Enter the cost"),
   currencyCode: currencyCodeSchema,
   currentValue: z.string().trim().max(30).nullable().optional(),
   usageFrequency: drainUsageFrequencySchema,

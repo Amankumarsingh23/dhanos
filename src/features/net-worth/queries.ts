@@ -17,6 +17,7 @@ import {
   computeLendingTotals,
   type LendingForTotals,
 } from "@/lib/calculations/lending-metrics";
+import { fetchAllRows } from "@/lib/queries/pagination";
 import { listAccounts } from "@/features/accounts/queries";
 import { getPortfolioHoldings } from "@/features/investments/queries";
 import { listAssets } from "@/features/assets/queries";
@@ -52,6 +53,30 @@ export type NetWorthBreakdown = NetWorthTotals & {
   missingValuationCount: number;
   /** General obligations marked 'estimated' — visible here for transparency, but never included in otherLiabilitiesMinorUnits/totalLiabilitiesMinorUnits. */
   estimatedGeneralObligationsExcludedMinorUnits: number;
+  /**
+   * Otherwise-eligible accounts/holdings/assets excluded from every
+   * component above purely because their own currency_code doesn't match
+   * the household's base currencyCode — see money-calculation-rules.md
+   * §1's "never combine currencies without an explicit conversion": this
+   * app has no cross-currency conversion, so a foreign-currency item is
+   * safely dropped rather than blended in at a fabricated rate. That's
+   * the correct arithmetic choice, but a silent drop would still
+   * understate net worth with no indication why — this count is what lets
+   * the UI say so explicitly (PROMPT 46 correctness review finding; see
+   * docs/financial-correctness-review.md). Named "excluded" rather than
+   * "missing" since the items exist and are visible on their own pages —
+   * only their contribution to *this total* is withheld.
+   */
+  currencyMismatchExcludedCount: number;
+  /**
+   * True only if a single account/asset/lending/liability category
+   * exceeded `FETCH_ALL_ROWS_PAGE_CAP` pages (5,000+ rows) for this
+   * household — see src/lib/queries/pagination.ts's `fetchAllRows`. Far
+   * beyond any realistic household size named in this app's product
+   * scope; surfaced so an operator investigating an unexpectedly-low net
+   * worth has a real signal rather than a silent truncation.
+   */
+  truncated: boolean;
 };
 
 /**
@@ -68,37 +93,56 @@ export async function getCurrentNetWorthBreakdown(
   const asOfDate = toIsoDateString(new Date());
 
   const [
-    accountsPage,
+    accountsResult,
     holdings,
-    assetsPage,
-    lendingsPage,
+    assetsResult,
+    lendingsResult,
     debtSummary,
-    liabilitiesPage,
+    liabilitiesResult,
   ] = await Promise.all([
-    listAccounts(supabase, householdId, {}, { pageSize: 100 }),
+    fetchAllRows((pagination) =>
+      listAccounts(supabase, householdId, {}, pagination),
+    ),
     getPortfolioHoldings(supabase, householdId, asOfDate),
-    listAssets(supabase, householdId, {}, { pageSize: 100 }),
-    listLendings(supabase, householdId, {}, { pageSize: 100 }),
+    fetchAllRows((pagination) =>
+      listAssets(supabase, householdId, {}, pagination),
+    ),
+    fetchAllRows((pagination) =>
+      listLendings(supabase, householdId, {}, pagination),
+    ),
     getDebtSummary(supabase, householdId, currencyCode),
-    listLiabilities(supabase, householdId, {}, { pageSize: 100 }),
+    fetchAllRows((pagination) =>
+      listLiabilities(supabase, householdId, {}, pagination),
+    ),
   ]);
+  const truncated =
+    accountsResult.truncated ||
+    assetsResult.truncated ||
+    lendingsResult.truncated ||
+    liabilitiesResult.truncated;
 
   // Cash and accounts — eligible account types only (excludes loan/credit,
   // same convention as the emergency fund planner, PROMPT 31).
-  const eligibleAccounts = accountsPage.rows.filter(
-    (account) =>
-      isAccountTypeEligible(account.account_type) &&
-      account.currency_code === currencyCode,
+  const typeEligibleAccounts = accountsResult.rows.filter((account) =>
+    isAccountTypeEligible(account.account_type),
+  );
+  const eligibleAccounts = typeEligibleAccounts.filter(
+    (account) => account.currency_code === currencyCode,
   );
   const cashAndAccountsMinorUnits = eligibleAccounts.reduce(
     (sum, account) => sum + account.currentBalance.amountMinorUnits,
     0,
   );
+  const accountsExcludedForCurrency =
+    typeEligibleAccounts.length - eligibleAccounts.length;
 
   // Investments — active holdings, latest valuation (null contributes 0,
   // never a guess); completeness tracks how many actually had one.
-  const activeHoldings = holdings.filter(
-    (holding) => holding.isActive && holding.currencyCode === currencyCode,
+  const activeHoldingsAnyCurrency = holdings.filter(
+    (holding) => holding.isActive,
+  );
+  const activeHoldings = activeHoldingsAnyCurrency.filter(
+    (holding) => holding.currencyCode === currencyCode,
   );
   const investmentsMinorUnits = activeHoldings.reduce(
     (sum, holding) => sum + (holding.currentValueMinorUnits ?? 0),
@@ -107,6 +151,8 @@ export async function getCurrentNetWorthBreakdown(
   const holdingsWithValuationCount = activeHoldings.filter(
     (holding) => holding.hasValuation,
   ).length;
+  const holdingsExcludedForCurrency =
+    activeHoldingsAnyCurrency.length - activeHoldings.length;
 
   // Assets — ownership-percentage-adjusted contribution, already computed
   // by listAssets (src/lib/calculations/assets.ts's
@@ -116,10 +162,14 @@ export async function getCurrentNetWorthBreakdown(
   // Disputed/expected assets are excluded from the completeness
   // denominator too — their zero contribution is a deliberate fact, not
   // missing data.
-  const eligibleAssets = assetsPage.rows.filter(
-    (asset) =>
-      asset.currency_code === currencyCode && asset.include_in_net_worth,
+  const netWorthEligibleAssetsAnyCurrency = assetsResult.rows.filter(
+    (asset) => asset.include_in_net_worth,
   );
+  const eligibleAssets = netWorthEligibleAssetsAnyCurrency.filter(
+    (asset) => asset.currency_code === currencyCode,
+  );
+  const assetsExcludedForCurrency =
+    netWorthEligibleAssetsAnyCurrency.length - eligibleAssets.length;
   const movableAssetsMinorUnits = eligibleAssets
     .filter((asset) => asset.asset_group !== "immovable")
     .reduce((sum, asset) => sum + asset.netWorthContributionMinorUnits, 0);
@@ -139,7 +189,7 @@ export async function getCurrentNetWorthBreakdown(
   // Receivables — currently-owed lending outstanding (active/
   // partially_repaid/delayed/disputed; written_off excluded), reusing
   // lending-metrics.ts's own totals computation unchanged.
-  const lendingRowsForTotals: LendingForTotals[] = lendingsPage.rows.map(
+  const lendingRowsForTotals: LendingForTotals[] = lendingsResult.rows.map(
     (lending) => ({
       currencyCode: lending.currency_code,
       status: lending.status,
@@ -163,7 +213,7 @@ export async function getCurrentNetWorthBreakdown(
   // Other liabilities — informal debt (any certainty) + general
   // obligations with certainty = confirmed only.
   const liabilitiesForNetWorth: LiabilityForNetWorth[] =
-    liabilitiesPage.rows.map((liability) => ({
+    liabilitiesResult.rows.map((liability) => ({
       currencyCode: liability.currency_code,
       status: liability.status,
       liabilitySource: liability.liability_source as
@@ -204,6 +254,11 @@ export async function getCurrentNetWorthBreakdown(
       valuationDependentItemCount - itemsWithValuationCount,
     estimatedGeneralObligationsExcludedMinorUnits:
       otherLiabilities.estimatedGeneralObligationsExcludedMinorUnits,
+    currencyMismatchExcludedCount:
+      accountsExcludedForCurrency +
+      holdingsExcludedForCurrency +
+      assetsExcludedForCurrency,
+    truncated,
   };
 }
 

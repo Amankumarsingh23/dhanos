@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -119,9 +120,9 @@ export const insurancePolicyFieldsSchema = z
       .min(1, "Select at least one insured person"),
     nomineePersonId: z.string().nullable().optional(),
     maskedPolicyNumber: optionalTextSchema,
-    coverageAmount: z.string().trim().min(1, "Enter the coverage amount"),
+    coverageAmount: positiveDecimalAmountSchema("Enter the coverage amount"),
     currencyCode: currencyCodeSchema,
-    premiumAmount: z.string().trim().min(1, "Enter the premium amount"),
+    premiumAmount: positiveDecimalAmountSchema("Enter the premium amount"),
     premiumFrequency: premiumFrequencySchema,
     startDate: isoDateStringSchema,
     renewalDate: optionalDateSchema,
@@ -179,7 +180,7 @@ export const recordPremiumPaymentSchema = z.object({
   policyId: uuidSchema,
   categoryId: z.string().min(1, "Select a category"),
   paymentDate: isoDateStringSchema,
-  amount: z.string().trim().min(1, "Enter the premium amount"),
+  amount: positiveDecimalAmountSchema("Enter the premium amount"),
   notes: notesSchema,
 });
 export type RecordPremiumPaymentInput = z.input<
@@ -274,7 +275,7 @@ export const insuranceClaimFieldsSchema = z
     insuredPersonId: z.string().min(1, "Select an insured person"),
     incidentDate: isoDateStringSchema,
     claimDate: isoDateStringSchema,
-    claimedAmount: z.string().trim().min(1, "Enter the claimed amount"),
+    claimedAmount: positiveDecimalAmountSchema("Enter the claimed amount"),
     approvedAmount: z.string().trim().max(30).nullable().optional(),
     hospitalProvider: optionalTextSchema,
     referenceNumber: optionalTextSchema,
@@ -316,7 +317,7 @@ export const recordClaimSettlementSchema = z.object({
   claimId: uuidSchema,
   policyId: uuidSchema,
   settledAccountId: z.string().min(1, "Select an account"),
-  settledAmount: z.string().trim().min(1, "Enter the settled amount"),
+  settledAmount: positiveDecimalAmountSchema("Enter the settled amount"),
   settledDate: isoDateStringSchema,
   description: optionalTextSchema,
 });

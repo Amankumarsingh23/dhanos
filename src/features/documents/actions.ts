@@ -1,7 +1,8 @@
 "use server";
 
-import { NotFoundError, toUserMessage } from "@/lib/errors/app-error";
+import { NotFoundError } from "@/lib/errors/app-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import {
   actionError,
   actionOk,
@@ -85,6 +86,7 @@ export async function createDocumentAction(
     allowedRoles: [...WRITE_ROLES],
     schema: createDocumentSchema,
     input,
+    actionName: "documents.upload",
     run: async ({ supabase, input: values }) => {
       const response = await supabase
         .from("documents")
@@ -180,7 +182,8 @@ async function setDocumentStatus(
     },
     activityEvent: ({ output }) => ({
       householdId,
-      eventType: status === "archived" ? "document.archived" : "document.restored",
+      eventType:
+        status === "archived" ? "document.archived" : "document.restored",
       entityType: "document",
       entityId: output.id,
     }),
@@ -273,6 +276,12 @@ export async function getDocumentDownloadUrlAction(
     );
     return actionOk(url);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    // Never log `url` itself — it's a short-lived signed download link.
+    return actionError(
+      reportActionError(error, "documents.get_download_url", {
+        householdId,
+        documentId: parsed.data.documentId,
+      }),
+    );
   }
 }

@@ -92,6 +92,7 @@ export function PrincipalVsInterestChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -126,6 +127,7 @@ export function PrincipalVsInterestChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="cumulativePrincipalPaidMinorUnits"
             name="cumulativePrincipalPaidMinorUnits"
@@ -134,6 +136,7 @@ export function PrincipalVsInterestChart({
             dot={false}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="cumulativeInterestPaidMinorUnits"
             name="cumulativeInterestPaidMinorUnits"

@@ -85,6 +85,7 @@ export function IncomeExpenseTrendChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -117,6 +118,7 @@ export function IncomeExpenseTrendChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="incomeMinorUnits"
             name="incomeMinorUnits"
@@ -126,6 +128,7 @@ export function IncomeExpenseTrendChart({
             activeDot={{ r: 5 }}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="expenseMinorUnits"
             name="expenseMinorUnits"

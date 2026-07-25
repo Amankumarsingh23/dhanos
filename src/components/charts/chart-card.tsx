@@ -90,7 +90,35 @@ export function ChartCard({
         ) : (
           <>
             <p className="sr-only">{accessibleSummary}</p>
-            <div style={{ height }} className={cn("w-full")} aria-hidden="true">
+            {/*
+              Deliberately not aria-hidden: Recharts' Cartesian/Polar charts
+              default accessibilityLayer to true, which makes the chart's
+              root SVG keyboard-focusable (tabIndex 0, role="application")
+              so arrow keys can step through data points — "keyboard-
+              accessible data where possible" (PROMPT 44). A focusable
+              element inside an aria-hidden container is both an
+              automatically-detectable violation and would silently defeat
+              that built-in navigation. Each chart also passes its own
+              accessibleSummary as the SVG's `desc` (see chart files) so the
+              focused region has real accessible content, in addition to
+              the sr-only text summary immediately above for anyone who
+              can't perceive the chart visually at all.
+            */}
+            {/*
+              data-sensitive="revealed" mirrors SensitiveAmount's own
+              convention: it's what lets a privacy-mode test (or anything
+              else) count "how many sensitive-figure surfaces does this
+              page have" consistently across every card and chart, in both
+              states — this branch was previously missing it, real when
+              revealed but silently absent from that count, only ever
+              showing up once concealed flipped it into the sibling
+              data-sensitive="concealed" branch above.
+            */}
+            <div
+              data-sensitive="revealed"
+              style={{ height }}
+              className={cn("w-full")}
+            >
               {children}
             </div>
             {legend}

@@ -174,6 +174,25 @@ export function NetWorthDashboard({
                 — only confirmed liabilities reduce net worth.
               </p>
             )}
+            {breakdown.currencyMismatchExcludedCount > 0 && (
+              <p>
+                {breakdown.currencyMismatchExcludedCount} account/holding/asset
+                record{breakdown.currencyMismatchExcludedCount === 1 ? "" : "s"}{" "}
+                in a currency other than {currencyCode}{" "}
+                {breakdown.currencyMismatchExcludedCount === 1 ? "is" : "are"}{" "}
+                not included in the total above — this app never converts
+                between currencies at an assumed rate, so a foreign-currency
+                item is left out entirely rather than blended in incorrectly.
+              </p>
+            )}
+            {breakdown.truncated && (
+              <p className="text-destructive">
+                This household has an unusually large number of
+                accounts/assets/lendings/liabilities in one category — the
+                total above may be incomplete. Contact support if this
+                figure looks wrong.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

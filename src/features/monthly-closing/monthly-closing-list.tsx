@@ -110,7 +110,7 @@ export function MonthlyClosingList({
           description="Start your first monthly closing above to begin building a reviewed, dated history of your finances."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>

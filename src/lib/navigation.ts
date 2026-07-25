@@ -9,7 +9,9 @@ import {
   FileTextIcon,
   GaugeIcon,
   GemIcon,
+  GraduationCapIcon,
   HandCoinsIcon,
+  ImportIcon,
   LandmarkIcon,
   LayoutDashboardIcon,
   LifeBuoyIcon,
@@ -38,9 +40,8 @@ export type NavItem = {
  * The authenticated app's primary navigation — shared by the sidebar,
  * mobile nav, and command palette so all three always agree. Deliberately
  * limited to launched sections: unfinished advanced modules (SIPs and
- * staking live under Investments rather than their own item; literacy
- * content) are not listed until they ship — see
- * docs/implementation-status.md §3.
+ * staking live under Investments rather than their own item) are not
+ * listed until they ship — see docs/implementation-status.md §3.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Dashboard", href: "/app", icon: LayoutDashboardIcon },
@@ -77,6 +78,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: ClipboardCheckIcon,
   },
   { label: "Documents", href: "/app/documents", icon: FileTextIcon },
+  { label: "Import", href: "/app/import", icon: ImportIcon },
   { label: "Reminders", href: "/app/reminders", icon: AlarmClockIcon },
   { label: "Reports", href: "/app/reports", icon: BanknoteIcon },
   {
@@ -84,6 +86,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/app/decisions",
     icon: NotebookPenIcon,
   },
+  { label: "Money Classroom", href: "/app/learning", icon: GraduationCapIcon },
   { label: "Settings", href: "/app/settings", icon: SettingsIcon },
 ] as const;
 

@@ -1,6 +1,6 @@
 # DhanOS — Shared Financial Data Architecture
 
-Status: **implemented (shared layer only)**. This document specifies the standard mutation and query patterns every financial feature module (accounts, transactions, recurring rules, and everything still planned in [database-plan.md](./database-plan.md) §3) must build on. It complements [architecture.md](./architecture.md) §5 (data flow) and [security-model.md](./security-model.md) §3 (authorization) rather than replacing them. No feature module has been wired up to this layer yet — see [implementation-status.md](./implementation-status.md).
+Status: **implemented and adopted everywhere** (stale "no feature module has been wired up to this layer yet" corrected during the PROMPT 56 version-one audit). This document specifies the standard mutation and query patterns every financial feature module builds on — `runHouseholdMutation` (`src/lib/mutations/index.ts`) and the shared query contract are used by every one of the ~35 implemented feature modules, not just the earliest ones. It complements [architecture.md](./architecture.md) §5 (data flow) and [security-model.md](./security-model.md) §3 (authorization) rather than replacing them — see [implementation-status.md](./implementation-status.md) for the per-module build record.
 
 ## 1. The mutation process
 

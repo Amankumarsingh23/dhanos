@@ -168,7 +168,7 @@ export function AccountDetailView({
               description="Transactions affecting this account will show up here."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted-foreground">
                   <tr>
@@ -262,7 +262,7 @@ export function AccountDetailView({
               description="Use “Correct balance” to record the first confirmed snapshot."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted-foreground">
                   <tr>

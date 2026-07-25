@@ -103,6 +103,7 @@ export function PortfolioValueTrendChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -129,6 +130,7 @@ export function PortfolioValueTrendChart({
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="currentValueMinorUnits"
             stroke="var(--color-chart-2)"

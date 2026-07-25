@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -244,7 +245,7 @@ const createLiabilityFieldsSchema = z.object({
   category: liabilityCategorySchema,
   counterpartyPersonId: z.string().nullable().optional(),
   counterpartyInstitutionId: z.string().nullable().optional(),
-  amount: z.string().trim().min(1, "Enter the amount"),
+  amount: positiveDecimalAmountSchema("Enter the amount"),
   currencyCode: currencyCodeSchema,
   startDate: isoDateStringSchema,
   dueDate: optionalDateSchema,

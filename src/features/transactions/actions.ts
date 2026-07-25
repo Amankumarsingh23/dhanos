@@ -11,7 +11,7 @@ import {
   type ActionResult,
 } from "@/lib/mutations";
 import { requireHouseholdRole } from "@/lib/households/permissions";
-import { toUserMessage } from "@/lib/errors/app-error";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/primitives";
 import {
@@ -389,6 +389,11 @@ export async function getTransactionSplitsAction(
     );
     return actionOk(splits);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, "transactions.get_splits", {
+        householdId,
+        transactionId: parsed.data,
+      }),
+    );
   }
 }

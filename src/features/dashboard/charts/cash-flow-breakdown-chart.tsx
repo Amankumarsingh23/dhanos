@@ -109,7 +109,11 @@ export function CashFlowBreakdownChart({
       emptyDescription="No cleared cash-flow transactions in this period yet."
     >
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <BarChart
+          desc={accessibleSummary}
+          data={data}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
@@ -133,7 +137,12 @@ export function CashFlowBreakdownChart({
             className="fill-muted-foreground text-xs"
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
-          <Bar dataKey="amountMinorUnits" radius={[4, 4, 0, 0]} maxBarSize={56}>
+          <Bar
+            isAnimationActive={false}
+            dataKey="amountMinorUnits"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={56}
+          >
             {data.map((row) => (
               <Cell
                 key={row.step}

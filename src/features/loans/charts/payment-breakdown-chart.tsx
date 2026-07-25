@@ -100,7 +100,11 @@ export function PaymentBreakdownChart({
       emptyDescription="No payments recorded yet."
     >
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <BarChart
+          desc={accessibleSummary}
+          data={data}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
@@ -135,24 +139,28 @@ export function PaymentBreakdownChart({
             wrapperStyle={{ fontSize: 12 }}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="principalMinorUnits"
             name="principalMinorUnits"
             stackId="value"
             fill="var(--color-chart-2)"
           />
           <Bar
+            isAnimationActive={false}
             dataKey="interestMinorUnits"
             name="interestMinorUnits"
             stackId="value"
             fill="var(--color-chart-3)"
           />
           <Bar
+            isAnimationActive={false}
             dataKey="feeMinorUnits"
             name="feeMinorUnits"
             stackId="value"
             fill="var(--color-chart-4)"
           />
           <Bar
+            isAnimationActive={false}
             dataKey="penaltyMinorUnits"
             name="penaltyMinorUnits"
             stackId="value"

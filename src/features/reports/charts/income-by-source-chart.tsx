@@ -75,7 +75,8 @@ export function IncomeBySourceChart({
 
   const accessibleSummary = `Income by source, ${dateRangeLabel}: ${chartData
     .map(
-      (row) => `${row.sourceName} — ${money(row.totalMinorUnits, currencyCode)}`,
+      (row) =>
+        `${row.sourceName} — ${money(row.totalMinorUnits, currencyCode)}`,
     )
     .join("; ")}.`;
 
@@ -93,6 +94,7 @@ export function IncomeBySourceChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           layout="vertical"
           margin={{ top: 8, right: 24, left: 8, bottom: 0 }}

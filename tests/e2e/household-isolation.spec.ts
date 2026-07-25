@@ -43,6 +43,10 @@ test.describe("household tenant isolation", () => {
     expect(await aReadsBMembers.json()).toEqual([]);
 
     // A cannot write a net-worth snapshot into B's household.
+    // total_assets/total_liabilities/net_worth_minor_units are `generated
+    // always as` columns (derived from the breakdown columns below, see
+    // supabase/migrations/20260723160000_net_worth_breakdown.sql) — never
+    // set directly; the breakdown columns all default to 0.
     const crossWrite = await restFetch(
       "/net_worth_snapshots",
       userA.accessToken,
@@ -51,8 +55,6 @@ test.describe("household tenant isolation", () => {
         body: JSON.stringify({
           household_id: householdB,
           as_of_date: "2026-07-21",
-          total_assets_minor_units: 1,
-          total_liabilities_minor_units: 0,
           currency_code: "INR",
         }),
       },

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireHousehold } from "@/lib/households/permissions";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
   createMoney,
@@ -13,6 +14,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { FinancialPrivacyNotice } from "@/components/shared/financial-privacy-notice";
 import { SummaryCard } from "@/components/shared/summary-card";
+import { ConcealDashboardOnLaunch } from "@/features/dashboard/conceal-on-launch";
 import {
   getAccountBalanceTrend,
   getAvailableBalance,
@@ -38,6 +40,12 @@ const TREND_MONTHS = 6;
 export default async function DashboardPage() {
   const { household } = await requireHousehold();
   const currencyCode = household.base_currency_code;
+  // Personal display preference (Settings — PROMPT 40): affects only how
+  // an amount is formatted (grouping, symbol placement) here on the
+  // dashboard, never which currency code or stored minor-units value is
+  // used — see docs/money-calculation-rules.md §1.
+  const profile = await getCurrentProfile();
+  const locale = profile?.locale;
 
   const now = new Date();
   const monthStart = toIsoDateString(
@@ -75,7 +83,7 @@ export default async function DashboardPage() {
   ]);
 
   const snapshot = netWorthResult.data;
-  const zero = formatMoney(createMoney(0, currencyCode));
+  const zero = formatMoney(createMoney(0, currencyCode), locale);
 
   const netWorth = snapshot
     ? formatMoney(
@@ -89,6 +97,7 @@ export default async function DashboardPage() {
             snapshot.currency_code,
           ),
         ),
+        locale,
       )
     : zero;
   const snapshotCaption = snapshot
@@ -122,12 +131,15 @@ export default async function DashboardPage() {
         description={`Cash flow for ${household.name}, month to date (${monthRangeLabel}).`}
       />
       <div className="space-y-6">
+        <ConcealDashboardOnLaunch
+          enabled={profile?.privacy_conceal_dashboard_on_launch ?? false}
+        />
         <FinancialPrivacyNotice />
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <SummaryCard
             title="Available account balance"
-            amount={formatMoney(availableBalance.total)}
+            amount={formatMoney(availableBalance.total, locale)}
             caption={
               availableBalance.excludedAccountCount > 0
                 ? `${availableBalance.accountCount} open ${currencyCode} account${availableBalance.accountCount === 1 ? "" : "s"} · ${availableBalance.excludedAccountCount} other-currency account${availableBalance.excludedAccountCount === 1 ? "" : "s"} excluded`
@@ -142,37 +154,37 @@ export default async function DashboardPage() {
           />
           <SummaryCard
             title="Income this month"
-            amount={formatMoney(cashFlowSummary.income)}
+            amount={formatMoney(cashFlowSummary.income, locale)}
             caption="Cleared income, month to date"
             href={`/app/cash-flow?kind=income&${cashFlowQuery}`}
           />
           <SummaryCard
             title="Expenses this month"
-            amount={formatMoney(cashFlowSummary.expense)}
+            amount={formatMoney(cashFlowSummary.expense, locale)}
             caption="Cleared expenses, net of refunds"
             href="/app/expenses?view=this_month"
           />
           <SummaryCard
             title="Investments this month"
-            amount={formatMoney(cashFlowSummary.investment)}
+            amount={formatMoney(cashFlowSummary.investment, locale)}
             caption="Investment contributions, month to date"
             href={`/app/cash-flow?kind=investment_contribution&${cashFlowQuery}`}
           />
           <SummaryCard
             title="Debt payments this month"
-            amount={formatMoney(cashFlowSummary.debtPayment)}
+            amount={formatMoney(cashFlowSummary.debtPayment, locale)}
             caption="Loan payments, principal + interest"
             href={`/app/cash-flow?kind=loan_payment&${cashFlowQuery}`}
           />
           <SummaryCard
             title="Insurance premiums this month"
-            amount={formatMoney(cashFlowSummary.insurancePremium)}
+            amount={formatMoney(cashFlowSummary.insurancePremium, locale)}
             caption="Included in Expenses above, shown separately"
             href={insuranceHref}
           />
           <SummaryCard
             title="Free cash flow"
-            amount={formatMoney(cashFlowSummary.freeCashFlow)}
+            amount={formatMoney(cashFlowSummary.freeCashFlow, locale)}
             caption="Income − expenses − debt payments"
             href={`/app/cash-flow?${cashFlowQuery}`}
           />

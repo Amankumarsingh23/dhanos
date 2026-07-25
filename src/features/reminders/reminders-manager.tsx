@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -122,9 +123,7 @@ export function RemindersManager({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [snoozeTarget, setSnoozeTarget] = useState<ReminderRecord | null>(
-    null,
-  );
+  const [snoozeTarget, setSnoozeTarget] = useState<ReminderRecord | null>(null);
   const [snoozeDate, setSnoozeDate] = useState("");
 
   function updateParams(patch: Record<string, string | undefined>) {
@@ -186,7 +185,9 @@ export function RemindersManager({
 
   function openSnooze(reminder: ReminderRecord) {
     setSnoozeTarget(reminder);
-    setSnoozeDate(toIsoDateString(addDays(new Date(`${asOfDate}T00:00:00Z`), 7)));
+    setSnoozeDate(
+      toIsoDateString(addDays(new Date(`${asOfDate}T00:00:00Z`), 7)),
+    );
   }
 
   async function handleSnoozeConfirm() {
@@ -224,9 +225,7 @@ export function RemindersManager({
             aria-label="Filter by reminder type"
             className="w-auto"
             value={filters.reminderType}
-            onChange={(event) =>
-              updateParams({ type: event.target.value })
-            }
+            onChange={(event) => updateParams({ type: event.target.value })}
           >
             <option value="">All types</option>
             {REMINDER_TYPE_OPTIONS.map(([value, label]) => (
@@ -235,7 +234,11 @@ export function RemindersManager({
               </option>
             ))}
           </NativeSelect>
-          <Button variant="outline" onClick={handleRefresh} disabled={isSyncing}>
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isSyncing}
+          >
             {isSyncing ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
@@ -252,14 +255,15 @@ export function RemindersManager({
           description="SIP contributions, EMIs, insurance premiums and renewals, expected income, lending repayments, document expiry, FD maturity, and periodic reviews all surface here automatically."
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border">
+        <div className="relative overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Reminder</th>
                 <th className="px-4 py-2.5 font-medium">Type</th>
                 <th className="px-4 py-2.5 font-medium">Due date</th>
-                {(filters.view === "upcoming" || filters.view === "overdue") && (
+                {(filters.view === "upcoming" ||
+                  filters.view === "overdue") && (
                   <th className="px-4 py-2.5 font-medium">Status</th>
                 )}
                 <th className="px-4 py-2.5">
@@ -271,7 +275,9 @@ export function RemindersManager({
               {reminders.map((reminder) => {
                 const link =
                   entityLinks[`${reminder.entity_type}:${reminder.entity_id}`];
-                const title = link?.label ?? REMINDER_TYPE_LABELS[reminder.reminder_type as ReminderType];
+                const title =
+                  link?.label ??
+                  REMINDER_TYPE_LABELS[reminder.reminder_type as ReminderType];
                 return (
                   <tr key={reminder.id}>
                     <td className="px-4 py-2.5 font-medium">
@@ -290,13 +296,23 @@ export function RemindersManager({
                     </td>
                     <td className="px-4 py-2.5">
                       <Badge variant="outline">
-                        {REMINDER_TYPE_LABELS[reminder.reminder_type as ReminderType]}
+                        {
+                          REMINDER_TYPE_LABELS[
+                            reminder.reminder_type as ReminderType
+                          ]
+                        }
                       </Badge>
                     </td>
-                    <td className="px-4 py-2.5">{formatDate(reminder.due_date)}</td>
-                    {(filters.view === "upcoming" || filters.view === "overdue") && (
+                    <td className="px-4 py-2.5">
+                      {formatDate(reminder.due_date)}
+                    </td>
+                    {(filters.view === "upcoming" ||
+                      filters.view === "overdue") && (
                       <td className="px-4 py-2.5">
-                        <DueBadge dueDate={reminder.due_date} asOfDate={asOfDate} />
+                        <DueBadge
+                          dueDate={reminder.due_date}
+                          asOfDate={asOfDate}
+                        />
                       </td>
                     )}
                     <td className="px-4 py-2.5 text-right">
@@ -310,21 +326,29 @@ export function RemindersManager({
                         <DropdownMenuContent align="end">
                           {reminder.status === "pending" ? (
                             <>
-                              <DropdownMenuItem onClick={() => handleComplete(reminder)}>
+                              <DropdownMenuItem
+                                onClick={() => handleComplete(reminder)}
+                              >
                                 <CheckIcon data-icon="inline-start" />
                                 Mark completed
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openSnooze(reminder)}>
+                              <DropdownMenuItem
+                                onClick={() => openSnooze(reminder)}
+                              >
                                 <AlarmClockIcon data-icon="inline-start" />
                                 Snooze
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSkip(reminder)}>
+                              <DropdownMenuItem
+                                onClick={() => handleSkip(reminder)}
+                              >
                                 <XIcon data-icon="inline-start" />
                                 Skip
                               </DropdownMenuItem>
                             </>
                           ) : (
-                            <DropdownMenuItem onClick={() => handleReopen(reminder)}>
+                            <DropdownMenuItem
+                              onClick={() => handleReopen(reminder)}
+                            >
                               <RotateCcwIcon data-icon="inline-start" />
                               Reopen
                             </DropdownMenuItem>
@@ -340,10 +364,16 @@ export function RemindersManager({
         </div>
       )}
 
-      <Dialog open={Boolean(snoozeTarget)} onOpenChange={(open) => !open && setSnoozeTarget(null)}>
+      <Dialog
+        open={Boolean(snoozeTarget)}
+        onOpenChange={(open) => !open && setSnoozeTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Snooze reminder</DialogTitle>
+            <DialogDescription>
+              Choose a date to hide this reminder until.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
             <Label htmlFor="snoozedUntil">Hide until</Label>
@@ -354,7 +384,8 @@ export function RemindersManager({
               onChange={(event) => setSnoozeDate(event.target.value)}
             />
             <p className="text-muted-foreground text-xs">
-              The reminder reappears in Upcoming/Overdue automatically once this date passes.
+              The reminder reappears in Upcoming/Overdue automatically once this
+              date passes.
             </p>
           </div>
           <DialogFooter>

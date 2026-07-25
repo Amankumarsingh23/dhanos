@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -88,8 +89,12 @@ export function DecisionDetailView({
   const status = decision.status as DecisionStatus;
 
   const [outcomeOpen, setOutcomeOpen] = useState(false);
-  const [actualOutcome, setActualOutcome] = useState(decision.actual_outcome ?? "");
-  const [lessonsLearned, setLessonsLearned] = useState(decision.lessons_learned ?? "");
+  const [actualOutcome, setActualOutcome] = useState(
+    decision.actual_outcome ?? "",
+  );
+  const [lessonsLearned, setLessonsLearned] = useState(
+    decision.lessons_learned ?? "",
+  );
 
   const [reversedOpen, setReversedOpen] = useState(false);
   const [reversedExplanation, setReversedExplanation] = useState("");
@@ -184,18 +189,19 @@ export function DecisionDetailView({
             <CardTitle className="text-lg">{decision.title}</CardTitle>
             <p className="text-muted-foreground text-sm">
               Decided {formatDate(decision.decision_date)}
-              {decision.amount_minor_units !== null && decision.currency_code && (
-                <>
-                  {" "}
-                  ·{" "}
-                  <SensitiveAmount
-                    value={formatMoney({
-                      amountMinorUnits: decision.amount_minor_units,
-                      currencyCode: decision.currency_code,
-                    })}
-                  />
-                </>
-              )}
+              {decision.amount_minor_units !== null &&
+                decision.currency_code && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <SensitiveAmount
+                      value={formatMoney({
+                        amountMinorUnits: decision.amount_minor_units,
+                        currencyCode: decision.currency_code,
+                      })}
+                    />
+                  </>
+                )}
             </p>
           </div>
           <Badge variant={statusBadgeVariant(status)}>
@@ -206,10 +212,18 @@ export function DecisionDetailView({
           {entityLink && (
             <div className="space-y-1">
               <p className="text-muted-foreground text-xs font-medium">
-                Related {DECISION_ENTITY_TYPE_LABELS[decision.entity_type as DecisionEntityType]}
+                Related{" "}
+                {
+                  DECISION_ENTITY_TYPE_LABELS[
+                    decision.entity_type as DecisionEntityType
+                  ]
+                }
               </p>
               {entityLink.href ? (
-                <Link href={entityLink.href} className="text-sm hover:underline">
+                <Link
+                  href={entityLink.href}
+                  className="text-sm hover:underline"
+                >
                   {entityLink.label}
                 </Link>
               ) : (
@@ -221,16 +235,18 @@ export function DecisionDetailView({
           {supersedesTitle && (
             <Alert>
               <AlertDescription>
-                This entry replaces an earlier decision, &ldquo;{supersedesTitle}&rdquo;
-                — its original entry is unchanged and still viewable.
+                This entry replaces an earlier decision, &ldquo;
+                {supersedesTitle}&rdquo; — its original entry is unchanged and
+                still viewable.
               </AlertDescription>
             </Alert>
           )}
           {supersededByTitle && (
             <Alert>
               <AlertDescription>
-                This decision was superseded by &ldquo;{supersededByTitle}&rdquo;. Its
-                content below remains exactly as originally recorded.
+                This decision was superseded by &ldquo;{supersededByTitle}
+                &rdquo;. Its content below remains exactly as originally
+                recorded.
               </AlertDescription>
             </Alert>
           )}
@@ -238,7 +254,10 @@ export function DecisionDetailView({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Context" value={decision.context} />
             <Field label="Choice" value={decision.choice} />
-            <Field label="Alternatives considered" value={decision.alternatives} />
+            <Field
+              label="Alternatives considered"
+              value={decision.alternatives}
+            />
             <Field label="Rationale" value={decision.rationale} />
             <Field label="Expected result" value={decision.expected_result} />
             <Field label="Risks" value={decision.risks} />
@@ -311,6 +330,9 @@ export function DecisionDetailView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record outcome</DialogTitle>
+            <DialogDescription>
+              Record what actually happened as a result of this decision.
+            </DialogDescription>
           </DialogHeader>
           {formError && (
             <Alert variant="destructive">
@@ -348,6 +370,9 @@ export function DecisionDetailView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Mark this decision reversed</DialogTitle>
+            <DialogDescription>
+              Explain what happened and why this decision is being reversed.
+            </DialogDescription>
           </DialogHeader>
           {formError && (
             <Alert variant="destructive">
@@ -355,7 +380,9 @@ export function DecisionDetailView({
             </Alert>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="reversedExplanation">What happened / why reversed</Label>
+            <Label htmlFor="reversedExplanation">
+              What happened / why reversed
+            </Label>
             <Textarea
               id="reversedExplanation"
               value={reversedExplanation}
@@ -377,6 +404,9 @@ export function DecisionDetailView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Review date</DialogTitle>
+            <DialogDescription>
+              Set when this decision should be revisited.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
             <Label htmlFor="reviewDateInput">Review date</Label>

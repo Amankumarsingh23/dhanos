@@ -105,6 +105,7 @@ export function AllocationChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={chartData}
           layout="vertical"
           margin={{ top: 8, right: 24, left: 8, bottom: 0 }}
@@ -134,6 +135,7 @@ export function AllocationChart({
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Bar
+            isAnimationActive={false}
             dataKey="currentValueMinorUnits"
             fill="var(--color-chart-2)"
             radius={[0, 4, 4, 0]}

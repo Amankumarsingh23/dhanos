@@ -7,8 +7,8 @@ import {
   type HouseholdMembership,
   type HouseholdRole,
 } from "@/lib/households/permissions";
-import { toUserMessage } from "@/lib/errors/app-error";
 import { recordActivityEvent, type ActivityEventInput } from "@/lib/activity";
+import { reportActionError } from "@/lib/observability/report-action-error";
 
 /**
  * The standard result every household-scoped Server Action returns — step
@@ -86,6 +86,8 @@ export async function runHouseholdMutation<
     output: TOutput;
   }) => ActivityEventInput | null;
   revalidatePaths?: string[];
+  /** Short, stable, dot-namespaced label for observability (e.g. "expenses.refund") — see docs/observability.md. */
+  actionName?: string;
 }): Promise<ActionResult<TOutput>> {
   const parsed = options.schema.safeParse(options.input);
   if (!parsed.success) {
@@ -123,6 +125,10 @@ export async function runHouseholdMutation<
 
     return actionOk(output);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, options.actionName ?? "household_mutation", {
+        householdId: options.householdId,
+      }),
+    );
   }
 }

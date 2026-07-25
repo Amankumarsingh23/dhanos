@@ -74,6 +74,7 @@ export function ContributionHistoryChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -100,6 +101,7 @@ export function ContributionHistoryChart({
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Bar
+            isAnimationActive={false}
             dataKey="amountMinorUnits"
             fill="var(--color-chart-2)"
             radius={[4, 4, 0, 0]}

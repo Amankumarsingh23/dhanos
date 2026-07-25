@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 import {
@@ -43,7 +44,7 @@ const optionalDecimalStringSchema = z
 
 const transferFieldsSchema = z
   .object({
-    amount: z.string().trim().min(1, "Enter an amount"),
+    amount: positiveDecimalAmountSchema("Enter an amount"),
     currencyCode: currencyCodeSchema,
     transactionDate: isoDateStringSchema,
     accountId: uuidSchema,

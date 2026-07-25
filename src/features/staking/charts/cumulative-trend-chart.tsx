@@ -91,6 +91,7 @@ export function CumulativeTrendChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
+          desc={accessibleSummary}
           data={[...data]}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
@@ -119,6 +120,7 @@ export function CumulativeTrendChart({
             content={<ChartTooltip currencyCode={currencyCode} title={title} />}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey={dataKey}
             stroke={color}

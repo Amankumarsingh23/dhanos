@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { NotFoundError, toUserMessage } from "@/lib/errors/app-error";
+import { NotFoundError } from "@/lib/errors/app-error";
+import { reportActionError } from "@/lib/observability/report-action-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
 import { parseDecimalToMinorUnits } from "@/lib/money";
 import {
@@ -443,7 +444,13 @@ export async function getAssetLocationPreciseAction(
     }
     return actionOk(response.data.location_precise);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    // Never log `location_precise` itself — see docs/observability.md.
+    return actionError(
+      reportActionError(error, "assets.get_location_precise", {
+        householdId,
+        assetId: parsed.data,
+      }),
+    );
   }
 }
 
@@ -462,6 +469,7 @@ export async function attachAssetDocumentAction(
     allowedRoles: [...WRITE_ROLES],
     schema: attachAssetDocumentSchema,
     input,
+    actionName: "assets.attach_document",
     run: async ({ supabase, input: values }) => {
       await fetchAsset(supabase, householdId, values.assetId);
 
@@ -566,7 +574,12 @@ export async function getAssetDocumentsAction(
     );
     return actionOk(documents);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    return actionError(
+      reportActionError(error, "assets.get_documents", {
+        householdId,
+        assetId: parsed.data,
+      }),
+    );
   }
 }
 
@@ -603,6 +616,12 @@ export async function getAssetDocumentUrlAction(
     );
     return actionOk(url);
   } catch (error) {
-    return actionError(toUserMessage(error));
+    // Never log `url` itself — it's a short-lived signed download link.
+    return actionError(
+      reportActionError(error, "assets.get_document_url", {
+        householdId,
+        attachmentId: parsed.data,
+      }),
+    );
   }
 }

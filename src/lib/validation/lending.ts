@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 
@@ -119,7 +120,7 @@ export const createLendingSchema = z
     borrowerPersonId: z.string().nullable().optional(),
     borrowerInstitutionId: z.string().nullable().optional(),
     sourceAccountId: z.string().min(1, "Select a source account"),
-    amountLent: z.string().trim().min(1, "Enter the amount lent"),
+    amountLent: positiveDecimalAmountSchema("Enter the amount lent"),
     currencyCode: currencyCodeSchema,
     disbursedDate: isoDateStringSchema,
     purpose: notesSchema,

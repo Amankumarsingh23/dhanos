@@ -80,6 +80,7 @@ export function DebtGroupChart({
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          desc={accessibleSummary}
           data={[...rows]}
           layout="vertical"
           margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
@@ -108,6 +109,7 @@ export function DebtGroupChart({
           />
           <Tooltip content={<ChartTooltip currencyCode={currencyCode} />} />
           <Bar
+            isAnimationActive={false}
             dataKey="outstandingMinorUnits"
             fill="var(--color-chart-2)"
             radius={[0, 4, 4, 0]}

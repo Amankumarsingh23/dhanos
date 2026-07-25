@@ -57,6 +57,18 @@ export async function requireHousehold(): Promise<{
   }
 
   const { households: household, ...membership } = data;
+
+  // A household archived via archiveHouseholdAction (PROMPT 40 — sets
+  // deleted_at, never a hard delete) is redirected to a dedicated notice
+  // page, never back to /onboarding: onboarding's get_or_create_household
+  // RPC is idempotent per-user (one owner membership ever), so routing an
+  // archived-household owner back through onboarding would just resolve to
+  // this same archived household again and redirect right back here — a
+  // loop. /household-archived is a deliberate dead end instead.
+  if (household.deleted_at) {
+    redirect("/household-archived");
+  }
+
   return { user, household, membership };
 }
 

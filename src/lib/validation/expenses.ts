@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   currencyCodeSchema,
   isoDateStringSchema,
+  positiveDecimalAmountSchema,
   uuidSchema,
 } from "@/lib/validation/primitives";
 import { transactionStatusSchema } from "@/lib/validation/transactions";
@@ -35,7 +36,7 @@ const optionalUuidSchema = uuidSchema.nullable().optional();
 /** One row of a split expense — see transaction_splits. */
 export const expenseSplitInputSchema = z.object({
   categoryId: uuidSchema,
-  amount: z.string().trim().min(1, "Enter an amount"),
+  amount: positiveDecimalAmountSchema("Enter an amount"),
   notes: descriptionSchema,
 });
 export type ExpenseSplitInput = z.input<typeof expenseSplitInputSchema>;
@@ -75,7 +76,7 @@ export const EXPENSE_RECURRING_FREQUENCY_LABELS: Record<
 
 const expenseFieldsSchema = z
   .object({
-    amount: z.string().trim().min(1, "Enter an amount"),
+    amount: positiveDecimalAmountSchema("Enter an amount"),
     currencyCode: currencyCodeSchema,
     transactionDate: isoDateStringSchema,
     accountId: uuidSchema,

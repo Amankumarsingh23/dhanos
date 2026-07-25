@@ -73,6 +73,23 @@ describe("computeNextOccurrenceAfter", () => {
     expect(computeNextOccurrenceAfter(s, "2026-04-30")).toBe("2026-05-31");
   });
 
+  it("clamps to the 29th (not the 28th) in a leap-year February, and still anchors back to the 31st in March — PROMPT 46", () => {
+    // 2028 is a leap year (divisible by 4, not a century): Jan 31 -> Feb
+    // clamps to the 29th, not the 28th a non-leap-year table would give —
+    // and Mar must still re-anchor to the 31st from startDate, not
+    // "29th + 1 month" = Mar 29.
+    const s = source({ frequency: "monthly", startDate: "2028-01-31" });
+    expect(computeNextOccurrenceAfter(s, "2028-01-31")).toBe("2028-02-29");
+    expect(computeNextOccurrenceAfter(s, "2028-02-29")).toBe("2028-03-31");
+    // The following February (2029) is not a leap year — confirms the
+    // clamp isn't hardcoded to 29 either, it's genuinely re-derived from
+    // getDaysInMonth every time.
+    const yearLater = source({ frequency: "monthly", startDate: "2029-01-31" });
+    expect(computeNextOccurrenceAfter(yearLater, "2029-01-31")).toBe(
+      "2029-02-28",
+    );
+  });
+
   it("applies intervalCount to monthly-family cadences (e.g. every 2 months)", () => {
     const s = source({
       frequency: "monthly",

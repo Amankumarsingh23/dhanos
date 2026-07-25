@@ -1,6 +1,6 @@
 # DhanOS — Target Architecture
 
-Status: **proposed**. The repository is currently empty — there is no existing framework, package manager, routing, layout, theme, or component code to inspect. Everything below is a recommendation for the architecture to build, not a description of what exists. When actual visual-design assets from Claude Design arrive (component library, theme tokens, Figma/exported code), reconcile them against section 4 before writing any UI code.
+Status: **implemented** (stale "repository is currently empty" framing corrected during the PROMPT 56 version-one audit — this was accurate only at project start and was never updated as the app was built). The stack choices in §1 and the module boundaries in §2 are what's actually running today — see [implementation-status.md](./implementation-status.md) for the authoritative per-module build record and [version-one-release-notes.md](./version-one-release-notes.md) for the full completion audit. §4's visual-design placeholder note still holds: no visual design from Claude Design has been delivered, so the shadcn/ui scaffold remains placeholder styling, not final design.
 
 ## 1. Recommended stack
 
@@ -112,6 +112,6 @@ At minimum:
 - End-to-end: Playwright against a local Supabase instance seeded with fixture data.
 - DB constraints: dedicated SQL test fixtures that assert impossible states (negative balances where disallowed, mismatched currency codes, overwritten historical rows) are rejected by constraints, not just application code — see [database-plan.md](./database-plan.md) and [manual-test-checklist.md](./manual-test-checklist.md).
 
-## 8. Deployment (planned)
+## 8. Deployment (planned) / CI (implemented)
 
-Vercel project linked to the repository, Supabase Cloud project for Postgres/Auth/Storage, migrations applied via Supabase CLI as part of the deploy pipeline (not applied ad hoc against production). Preview deployments per PR against a staging Supabase project or branch database, never against production data.
+Vercel project linked to the repository, Supabase Cloud project for Postgres/Auth/Storage, migrations applied via Supabase CLI as part of the deploy pipeline (not applied ad hoc against production). Preview deployments per PR against a staging Supabase project or branch database, never against production data. GitHub Actions CI (`.github/workflows/ci.yml`) is implemented — install/typecheck/lint/unit tests/build, plus a separate job validating migrations, generated-type consistency, and Playwright integration/e2e tests — see [ci-cd.md](./ci-cd.md) for the full pipeline (branch workflow → PR → CI → Vercel preview → manual acceptance → merge → production) and current status of each stage.
