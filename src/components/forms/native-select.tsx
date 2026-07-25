@@ -17,7 +17,16 @@ export function NativeSelect({
     <select
       data-slot="native-select"
       className={cn(
-        "border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 w-full min-w-0 rounded-lg border bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:ring-3 md:text-sm",
+        // The closed box picks up bg-transparent (the page's own
+        // background shows through) fine, but a native <select>'s open
+        // option-list popup does NOT inherit page styling the way normal
+        // elements do — most browsers render it with their own default
+        // (light) popup background regardless of theme. Styling <option>
+        // directly is the one thing browsers reliably respect for this;
+        // using the same popover tokens every other dropdown-like surface
+        // in the app already uses (see globals.css) keeps it consistent
+        // rather than inventing a one-off color here.
+        "border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground h-8 w-full min-w-0 rounded-lg border bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:ring-3 md:text-sm",
         className,
       )}
       {...props}
