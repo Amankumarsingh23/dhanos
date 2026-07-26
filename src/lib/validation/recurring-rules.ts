@@ -192,3 +192,11 @@ export const skipOccurrenceSchema = z.object({
   notes: notesSchema,
 });
 export type SkipOccurrenceInput = z.input<typeof skipOccurrenceSchema>;
+
+/** Bulk-records every elapsed occurrence up to today in one call — see catchUpRecurringRuleAction. */
+export const catchUpRuleOccurrencesSchema = z.object({
+  recurringRuleId: uuidSchema,
+});
+export type CatchUpRuleOccurrencesInput = z.input<
+  typeof catchUpRuleOccurrencesSchema
+>;

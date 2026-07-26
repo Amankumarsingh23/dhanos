@@ -168,3 +168,11 @@ export const sipStatusActionSchema = z.object({
   notes: notesSchema,
 });
 export type SipStatusActionInput = z.input<typeof sipStatusActionSchema>;
+
+/** Bulk-records every elapsed contribution up to today in one call — see catchUpSipContributionsAction. */
+export const catchUpSipContributionsSchema = z.object({
+  investmentSipId: uuidSchema,
+});
+export type CatchUpSipContributionsInput = z.input<
+  typeof catchUpSipContributionsSchema
+>;

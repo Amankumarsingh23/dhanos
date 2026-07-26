@@ -23,12 +23,14 @@ import {
   type RecurringScheduleSource,
 } from "@/lib/calculations/recurring-schedule";
 import {
+  catchUpRuleOccurrencesSchema,
   pauseResumeRuleSchema,
   recordOccurrenceSchema,
   recurringRuleInputSchema,
   recurringRuleUpdateSchema,
   scheduleAmountChangeSchema,
   skipOccurrenceSchema,
+  type CatchUpRuleOccurrencesInput,
   type PauseResumeRuleInput,
   type RecordOccurrenceInput,
   type RecurringFrequency,
@@ -343,7 +345,7 @@ async function setStatus(
   householdId: string,
   input: PauseResumeRuleInput,
   status: "active" | "paused" | "ended",
-  eventType: "paused" | "resumed" | "ended",
+  eventType: "paused" | "resumed" | "ended" | "reactivated",
 ): Promise<ActionResult<RecurringRuleRecord>> {
   return runHouseholdMutation({
     householdId,
@@ -397,6 +399,20 @@ export async function endRecurringRuleAction(
   input: PauseResumeRuleInput,
 ): Promise<ActionResult<RecurringRuleRecord>> {
   return setStatus(householdId, input, "ended", "ended");
+}
+
+/**
+ * Undoes an 'ended' status set by mistake. next_due_date is untouched by
+ * set_recurring_rule_status either way, so a rule that still has a real
+ * next_due_date resumes exactly where it left off; one exhausted
+ * naturally (next_due_date already null) has nothing left to record until
+ * the household edits its end date.
+ */
+export async function reactivateRecurringRuleAction(
+  householdId: string,
+  input: PauseResumeRuleInput,
+): Promise<ActionResult<RecurringRuleRecord>> {
+  return setStatus(householdId, input, "active", "reactivated");
 }
 
 /**
@@ -547,6 +563,128 @@ export async function recordOccurrenceAction(
       entityType: "transaction",
       entityId: output.id,
       metadata: { recurringRuleId: input.recurringRuleId },
+    }),
+    revalidatePaths: [
+      ...RECURRING_REVALIDATE_PATHS,
+      `/app/recurring/${input.recurringRuleId}`,
+      "/app/cash-flow",
+      "/app/accounts",
+    ],
+  });
+}
+
+const MAX_CATCH_UP_OCCURRENCES = 366;
+
+/**
+ * Bulk-records every elapsed occurrence for one rule up to today as a
+ * single 'cleared' transaction each, in one click — found live: a daily
+ * rule created with a start_date weeks in the past otherwise forced the
+ * household through recordOccurrenceAction one occurrence, one dialog
+ * submit, at a time (e.g. 71 clicks for a 71-day-old daily SIP reminder).
+ * Always writes 'cleared' (never 'planned') because this is an explicit
+ * "yes, all of these already happened" confirmation, not the generateDueOccurrencesAction
+ * auto-create path — that one deliberately stays 'planned' since it runs
+ * without a human looking at each occurrence.
+ */
+export async function catchUpRecurringRuleAction(
+  householdId: string,
+  input: CatchUpRuleOccurrencesInput,
+): Promise<ActionResult<{ recurringRuleId: string; recordedCount: number }>> {
+  return runHouseholdMutation({
+    householdId,
+    allowedRoles: [...WRITE_ROLES],
+    schema: catchUpRuleOccurrencesSchema,
+    input,
+    run: async ({ supabase, input: values }) => {
+      const rule = await fetchRule(
+        supabase,
+        householdId,
+        values.recurringRuleId,
+      );
+      if (rule.status !== "active") {
+        throw new ValidationError(
+          "Only an active rule can catch up its occurrences.",
+        );
+      }
+      if (!rule.next_due_date) {
+        throw new ValidationError("This rule has no further occurrences.");
+      }
+
+      const asOfDate = toIsoDateString(new Date());
+      const schedule = await fetchAmountSchedule(
+        supabase,
+        householdId,
+        rule.id,
+      );
+      const scheduleEntries = schedule.map((s) => ({
+        effectiveDate: s.effective_date,
+        amountMinorUnits: s.amount_minor_units,
+      }));
+
+      let recordedCount = 0;
+      let currentDueDate: string | null = rule.next_due_date;
+      for (
+        let iteration = 0;
+        currentDueDate !== null &&
+        currentDueDate <= asOfDate &&
+        iteration < MAX_CATCH_UP_OCCURRENCES;
+        iteration++
+      ) {
+        const amountMinorUnits = resolveAmountForDate(
+          rule.amount_minor_units,
+          scheduleEntries,
+          currentDueDate,
+        );
+        const nextDueDate = computeNextOccurrenceAfter(
+          toScheduleSource(rule),
+          currentDueDate,
+        );
+
+        const response = await supabase.rpc(
+          "record_recurring_rule_occurrence",
+          {
+            p_household_id: householdId,
+            p_recurring_rule_id: rule.id,
+            p_occurrence_date: currentDueDate,
+            p_next_due_date: nextDueDate ?? undefined,
+            p_kind: rule.kind,
+            p_amount_minor_units: amountMinorUnits,
+            p_currency_code: rule.currency_code,
+            p_account_id: rule.account_id,
+            p_transfer_account_id: rule.transfer_account_id ?? undefined,
+            p_category_id: rule.category_id ?? undefined,
+            p_counterparty: rule.counterparty ?? undefined,
+            p_description: rule.name,
+            p_status: "cleared",
+            p_related_person_id: rule.related_person_id ?? undefined,
+          },
+        );
+        if (response.error) {
+          throw mapSupabaseError(response.error);
+        }
+        recordedCount += 1;
+        currentDueDate = nextDueDate;
+      }
+
+      if (currentDueDate === null) {
+        await supabase.rpc("set_recurring_rule_status", {
+          p_household_id: householdId,
+          p_recurring_rule_id: rule.id,
+          p_status: "ended",
+          p_event_type: "ended",
+          p_notes:
+            "Automatically ended — no further occurrences before end date.",
+        });
+      }
+
+      return { recurringRuleId: rule.id, recordedCount };
+    },
+    activityEvent: ({ output }) => ({
+      householdId,
+      eventType: "recurring_rule.occurrences_caught_up",
+      entityType: "recurring_rule",
+      entityId: output.recurringRuleId,
+      metadata: { recordedCount: output.recordedCount },
     }),
     revalidatePaths: [
       ...RECURRING_REVALIDATE_PATHS,

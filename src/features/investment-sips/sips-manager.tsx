@@ -36,8 +36,10 @@ import type { Page } from "@/lib/queries/pagination";
 import {
   activateSipAction,
   cancelSipAction,
+  catchUpSipContributionsAction,
   completeSipAction,
   pauseSipAction,
+  reactivateSipAction,
   resumeSipAction,
 } from "./actions";
 import {
@@ -55,7 +57,13 @@ import type {
   SipContributionRow,
 } from "./queries";
 
-type StatusActionKind = "activate" | "pause" | "resume" | "cancel" | "complete";
+type StatusActionKind =
+  | "activate"
+  | "pause"
+  | "resume"
+  | "cancel"
+  | "complete"
+  | "reactivate";
 
 type SipsManagerProps = {
   householdId: string;
@@ -184,6 +192,12 @@ const STATUS_ACTION_COPY: Record<
     confirmLabel: "Cancel SIP",
     destructive: true,
   },
+  reactivate: {
+    title: "Reactivate this SIP?",
+    description:
+      "Undoes a completed/cancelled status set by mistake. Its schedule resumes from the same next due date — nothing is fast-forwarded.",
+    confirmLabel: "Reactivate",
+  },
 };
 
 export function SipsManager({
@@ -216,6 +230,9 @@ export function SipsManager({
     sip: InvestmentSipRow;
     kind: StatusActionKind;
   } | null>(null);
+  const [catchUpTarget, setCatchUpTarget] = useState<InvestmentSipRow | null>(
+    null,
+  );
 
   function updateParams(patch: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -255,13 +272,32 @@ export function SipsManager({
             ? resumeSipAction
             : kind === "complete"
               ? completeSipAction
-              : cancelSipAction;
+              : kind === "reactivate"
+                ? reactivateSipAction
+                : cancelSipAction;
     const result = await action(householdId, { investmentSipId: sip.id });
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
     toast.success(STATUS_ACTION_COPY[kind].confirmLabel + "d");
+    router.refresh();
+  }
+
+  async function handleCatchUpConfirm() {
+    if (!catchUpTarget) return;
+    const result = await catchUpSipContributionsAction(householdId, {
+      investmentSipId: catchUpTarget.id,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      result.data.recordedCount === 0
+        ? "Already up to date — nothing to catch up"
+        : `Recorded ${result.data.recordedCount} contribution${result.data.recordedCount === 1 ? "" : "s"}`,
+    );
     router.refresh();
   }
 
@@ -522,6 +558,13 @@ export function SipsManager({
                             Record contribution
                           </DropdownMenuItem>
                         )}
+                        {sip.status === "active" && sip.isMissed && (
+                          <DropdownMenuItem
+                            onClick={() => setCatchUpTarget(sip)}
+                          >
+                            Catch up missed contributions
+                          </DropdownMenuItem>
+                        )}
                         {sip.status === "planned" && (
                           <DropdownMenuItem
                             onClick={() =>
@@ -569,6 +612,16 @@ export function SipsManager({
                               Cancel
                             </DropdownMenuItem>
                           )}
+                        {(sip.status === "completed" ||
+                          sip.status === "cancelled") && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setStatusActionTarget({ sip, kind: "reactivate" })
+                            }
+                          >
+                            Reactivate
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -641,6 +694,18 @@ export function SipsManager({
         confirmLabel={activeAction?.confirmLabel ?? "Confirm"}
         destructive={activeAction?.destructive}
         onConfirm={handleStatusActionConfirm}
+      />
+      <ConfirmDialog
+        open={Boolean(catchUpTarget)}
+        onOpenChange={(open) => !open && setCatchUpTarget(null)}
+        title="Catch up missed contributions?"
+        description={
+          catchUpTarget
+            ? `Records every contribution due from ${formatDisplayDate(catchUpTarget.next_due_date ?? "")} through today as cleared — one real transaction per scheduled date, in one step instead of one at a time.`
+            : ""
+        }
+        confirmLabel="Catch up"
+        onConfirm={handleCatchUpConfirm}
       />
     </div>
   );

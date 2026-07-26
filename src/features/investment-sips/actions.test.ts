@@ -18,8 +18,13 @@ vi.mock("@/lib/activity", () => ({
   recordActivityEvent: (...args: unknown[]) => recordActivityEvent(...args),
 }));
 
-const { createSipAction, pauseSipAction, recordSipContributionAction } =
-  await import("./actions");
+const {
+  catchUpSipContributionsAction,
+  createSipAction,
+  pauseSipAction,
+  reactivateSipAction,
+  recordSipContributionAction,
+} = await import("./actions");
 
 const FAKE_USER = { id: "user-1" };
 const FAKE_MEMBERSHIP = { role: "editor" };
@@ -259,6 +264,89 @@ describe("investment-sips actions", () => {
           p_event_type: "paused",
         }),
       );
+    });
+  });
+
+  describe("reactivateSipAction", () => {
+    it("calls set_investment_sip_status with status = active, event_type = reactivated — undoing a misclicked 'completed'/'cancelled'", async () => {
+      const rpc = vi.fn().mockResolvedValue({
+        data: { ...BASE_SIP, status: "active" },
+        error: null,
+      });
+      createClient.mockResolvedValue({ rpc });
+
+      const result = await reactivateSipAction(HOUSEHOLD_ID, {
+        investmentSipId: SIP_ID,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(rpc).toHaveBeenCalledWith(
+        "set_investment_sip_status",
+        expect.objectContaining({
+          p_investment_sip_id: SIP_ID,
+          p_status: "active",
+          p_event_type: "reactivated",
+        }),
+      );
+    });
+  });
+
+  describe("catchUpSipContributionsAction", () => {
+    it("bulk-records every elapsed daily contribution up to today as cleared, in one call", async () => {
+      // start_date/next_due_date are weeks in the past — the exact "found
+      // live" scenario (a 71-day-old daily SIP otherwise needing 71
+      // separate recordSipContributionAction dialog submits).
+      const fetchSip = queryStub({ data: BASE_SIP, error: null });
+      const rpc = vi.fn().mockResolvedValue({
+        data: { id: "investment-txn-1" },
+        error: null,
+      });
+      createClient.mockResolvedValue({ from: () => fetchSip, rpc });
+
+      const result = await catchUpSipContributionsAction(HOUSEHOLD_ID, {
+        investmentSipId: SIP_ID,
+      });
+
+      expect(result.ok).toBe(true);
+      const contributionCalls = rpc.mock.calls.filter(
+        (call) => call[0] === "record_investment_sip_contribution",
+      );
+      // BASE_SIP.next_due_date ("2026-07-01") is well in the past, so a
+      // daily SIP with no end_date must catch up more than one occurrence.
+      expect(contributionCalls.length).toBeGreaterThan(1);
+      for (const call of contributionCalls) {
+        expect(call[1]).toMatchObject({
+          p_investment_sip_id: SIP_ID,
+          p_amount_minor_units: BASE_SIP.contribution_amount_minor_units,
+          p_status: "cleared",
+        });
+      }
+      if (result.ok) {
+        expect(result.data.recordedCount).toBe(contributionCalls.length);
+      }
+      // No end_date, so the schedule is never exhausted by catching up —
+      // must not auto-complete the SIP.
+      expect(rpc).not.toHaveBeenCalledWith(
+        "set_investment_sip_status",
+        expect.anything(),
+      );
+    });
+
+    it("rejects catching up a non-active SIP", async () => {
+      const pausedSip = { ...BASE_SIP, status: "paused" };
+      const fetchSip = queryStub({ data: pausedSip, error: null });
+      const rpc = vi.fn();
+      createClient.mockResolvedValue({ from: () => fetchSip, rpc });
+
+      const result = await catchUpSipContributionsAction(HOUSEHOLD_ID, {
+        investmentSipId: SIP_ID,
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/active/i);
+      }
+      expect(rpc).not.toHaveBeenCalled();
     });
   });
 });

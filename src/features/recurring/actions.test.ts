@@ -19,9 +19,11 @@ vi.mock("@/lib/activity", () => ({
 }));
 
 const {
+  catchUpRecurringRuleAction,
   createRecurringRuleAction,
   generateDueOccurrencesAction,
   pauseRecurringRuleAction,
+  reactivateRecurringRuleAction,
   recordOccurrenceAction,
   resumeRecurringRuleAction,
   scheduleAmountChangeAction,
@@ -242,6 +244,27 @@ describe("recurring actions", () => {
         }),
       );
     });
+
+    it("reactivates an ended rule via the RPC with event type = reactivated — undoing an accidental 'End'", async () => {
+      const rpc = vi.fn().mockResolvedValue({
+        data: { ...BASE_RULE, status: "active" },
+        error: null,
+      });
+      createClient.mockResolvedValue({ rpc });
+
+      const result = await reactivateRecurringRuleAction(HOUSEHOLD_ID, {
+        recurringRuleId: RULE_ID,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(rpc).toHaveBeenCalledWith(
+        "set_recurring_rule_status",
+        expect.objectContaining({
+          p_status: "active",
+          p_event_type: "reactivated",
+        }),
+      );
+    });
   });
 
   describe("skipOccurrenceAction", () => {
@@ -339,6 +362,75 @@ describe("recurring actions", () => {
           p_status: "cleared",
         }),
       );
+    });
+  });
+
+  describe("catchUpRecurringRuleAction", () => {
+    // A daily rule whose next_due_date is weeks in the past — the exact
+    // "found live" scenario (a 71-day-old daily SIP reminder otherwise
+    // needing 71 separate recordOccurrenceAction dialog submits).
+    const dailyRule = {
+      ...BASE_RULE,
+      frequency: "daily" as const,
+      next_due_date: "2026-07-01",
+    };
+
+    it("bulk-records every elapsed occurrence up to today as cleared, in one call", async () => {
+      const from = vi.fn((table: string) => {
+        if (table === "recurring_rules") {
+          return queryStub({ data: dailyRule, error: null });
+        }
+        return queryStub({ data: [], error: null }); // recurring_rule_amount_schedules
+      });
+      const rpc = vi.fn().mockResolvedValue({
+        data: { id: "txn-1" },
+        error: null,
+      });
+      createClient.mockResolvedValue({ from, rpc });
+
+      const result = await catchUpRecurringRuleAction(HOUSEHOLD_ID, {
+        recurringRuleId: RULE_ID,
+      });
+
+      expect(result.ok).toBe(true);
+      const occurrenceCalls = rpc.mock.calls.filter(
+        (call) => call[0] === "record_recurring_rule_occurrence",
+      );
+      expect(occurrenceCalls.length).toBeGreaterThan(1);
+      for (const call of occurrenceCalls) {
+        expect(call[1]).toMatchObject({
+          p_recurring_rule_id: RULE_ID,
+          p_amount_minor_units: dailyRule.amount_minor_units,
+          p_status: "cleared",
+        });
+      }
+      if (result.ok) {
+        expect(result.data.recordedCount).toBe(occurrenceCalls.length);
+      }
+      // No end_date, so the schedule is never exhausted by catching up —
+      // must not auto-end the rule.
+      expect(rpc).not.toHaveBeenCalledWith(
+        "set_recurring_rule_status",
+        expect.anything(),
+      );
+    });
+
+    it("rejects catching up a non-active rule", async () => {
+      const from = vi.fn(() =>
+        queryStub({ data: { ...dailyRule, status: "paused" }, error: null }),
+      );
+      const rpc = vi.fn();
+      createClient.mockResolvedValue({ from, rpc });
+
+      const result = await catchUpRecurringRuleAction(HOUSEHOLD_ID, {
+        recurringRuleId: RULE_ID,
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/active/i);
+      }
+      expect(rpc).not.toHaveBeenCalled();
     });
   });
 

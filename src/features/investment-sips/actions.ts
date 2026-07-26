@@ -4,6 +4,7 @@ import { z } from "zod";
 import { NotFoundError, ValidationError } from "@/lib/errors/app-error";
 import { mapSupabaseError } from "@/lib/errors/supabase";
 import { parseDecimalToMinorUnits } from "@/lib/money";
+import { toIsoDateString } from "@/lib/dates";
 import { runHouseholdMutation, type ActionResult } from "@/lib/mutations";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -12,11 +13,13 @@ import {
   type RecurringScheduleSource,
 } from "@/lib/calculations/recurring-schedule";
 import {
+  catchUpSipContributionsSchema,
   CREATE_NEW_OPTION_VALUE,
   investmentSipInputSchema,
   investmentSipUpdateSchema,
   recordSipContributionSchema,
   sipStatusActionSchema,
+  type CatchUpSipContributionsInput,
   type InvestmentSipInput,
   type InvestmentSipUpdateInput,
   type RecordSipContributionInput,
@@ -318,7 +321,13 @@ async function setStatus(
   householdId: string,
   input: SipStatusActionInput,
   status: "active" | "paused" | "completed" | "cancelled",
-  eventType: "activated" | "paused" | "resumed" | "completed" | "cancelled",
+  eventType:
+    | "activated"
+    | "paused"
+    | "resumed"
+    | "completed"
+    | "cancelled"
+    | "reactivated",
 ): Promise<ActionResult<InvestmentSipRecord>> {
   return runHouseholdMutation({
     householdId,
@@ -385,6 +394,21 @@ export async function cancelSipAction(
   input: SipStatusActionInput,
 ): Promise<ActionResult<InvestmentSipRecord>> {
   return setStatus(householdId, input, "cancelled", "cancelled");
+}
+
+/**
+ * Undoes a 'completed'/'cancelled' status set by mistake (e.g. a misclick
+ * on the adjacent "Mark completed" menu item — found live). next_due_date
+ * is untouched by set_investment_sip_status either way, so a SIP that
+ * still has a real next_due_date resumes its schedule exactly where it
+ * left off; one exhausted naturally (next_due_date already null) simply
+ * has nothing left to record until the household edits its end date.
+ */
+export async function reactivateSipAction(
+  householdId: string,
+  input: SipStatusActionInput,
+): Promise<ActionResult<InvestmentSipRecord>> {
+  return setStatus(householdId, input, "active", "reactivated");
 }
 
 /**
@@ -461,6 +485,99 @@ export async function recordSipContributionAction(
       eventType: "investment_sip.contribution_recorded",
       entityType: "investment_sip",
       entityId: output.id,
+    }),
+    revalidatePaths: [...SIP_REVALIDATE_PATHS],
+  });
+}
+
+const MAX_CATCH_UP_CONTRIBUTIONS = 366;
+
+/**
+ * Bulk-records every elapsed contribution for one SIP up to today, at its
+ * current contribution_amount_minor_units, as a single 'cleared'
+ * investment_transactions row each — found live: a daily SIP created with
+ * a start_date weeks in the past otherwise forced the household through
+ * recordSipContributionAction one contribution, one dialog submit, at a
+ * time (71 clicks for a 71-day-old daily SIP). Each iteration is the same
+ * atomic record_investment_sip_contribution RPC recordSipContributionAction
+ * uses — investment_transactions_sip_occurrence_uidx still backstops
+ * against ever recording the same date twice, so this is safe to re-run.
+ */
+export async function catchUpSipContributionsAction(
+  householdId: string,
+  input: CatchUpSipContributionsInput,
+): Promise<ActionResult<{ investmentSipId: string; recordedCount: number }>> {
+  return runHouseholdMutation({
+    householdId,
+    allowedRoles: [...WRITE_ROLES],
+    schema: catchUpSipContributionsSchema,
+    input,
+    run: async ({ supabase, input: values }) => {
+      const sip = await fetchSip(supabase, householdId, values.investmentSipId);
+      if (sip.status !== "active") {
+        throw new ValidationError(
+          "Only an active SIP can catch up its contributions.",
+        );
+      }
+      if (!sip.next_due_date) {
+        throw new ValidationError("This SIP has no further occurrences.");
+      }
+
+      const asOfDate = toIsoDateString(new Date());
+      let recordedCount = 0;
+      let currentDueDate: string | null = sip.next_due_date;
+      for (
+        let iteration = 0;
+        currentDueDate !== null &&
+        currentDueDate <= asOfDate &&
+        iteration < MAX_CATCH_UP_CONTRIBUTIONS;
+        iteration++
+      ) {
+        const nextDueDate = computeNextOccurrenceAfter(
+          toScheduleSource(sip),
+          currentDueDate,
+        );
+
+        const response = await supabase.rpc(
+          "record_investment_sip_contribution",
+          {
+            p_household_id: householdId,
+            p_investment_sip_id: sip.id,
+            p_investment_holding_id: sip.investment_holding_id,
+            p_contribution_account_id: sip.contribution_account_id,
+            p_occurrence_date: currentDueDate,
+            p_amount_minor_units: sip.contribution_amount_minor_units,
+            p_currency_code: sip.currency_code,
+            p_status: "cleared",
+            p_next_due_date: nextDueDate ?? undefined,
+          },
+        );
+        if (response.error) {
+          throw mapSupabaseError(response.error);
+        }
+        recordedCount += 1;
+        currentDueDate = nextDueDate;
+      }
+
+      if (currentDueDate === null) {
+        await supabase.rpc("set_investment_sip_status", {
+          p_household_id: householdId,
+          p_investment_sip_id: sip.id,
+          p_status: "completed",
+          p_event_type: "completed",
+          p_notes:
+            "Automatically completed — no further occurrences before end date.",
+        });
+      }
+
+      return { investmentSipId: sip.id, recordedCount };
+    },
+    activityEvent: ({ output }) => ({
+      householdId,
+      eventType: "investment_sip.contributions_caught_up",
+      entityType: "investment_sip",
+      entityId: output.investmentSipId,
+      metadata: { recordedCount: output.recordedCount },
     }),
     revalidatePaths: [...SIP_REVALIDATE_PATHS],
   });

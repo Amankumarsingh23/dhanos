@@ -22,8 +22,10 @@ import {
   type RecurringRuleStatus,
 } from "@/lib/validation/recurring-rules";
 import {
+  catchUpRecurringRuleAction,
   endRecurringRuleAction,
   pauseRecurringRuleAction,
+  reactivateRecurringRuleAction,
   resumeRecurringRuleAction,
   skipOccurrenceAction,
 } from "./actions";
@@ -53,6 +55,7 @@ const EVENT_LABELS: Record<string, string> = {
   skipped: "Occurrence skipped",
   ended: "Ended",
   occurrence_generated: "Occurrence recorded",
+  reactivated: "Reactivated",
 };
 
 function money(amountMinorUnits: number, currencyCode: string): string {
@@ -73,6 +76,8 @@ export function RecurringDetailView({
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+  const [catchUpConfirmOpen, setCatchUpConfirmOpen] = useState(false);
+  const [reactivateConfirmOpen, setReactivateConfirmOpen] = useState(false);
 
   async function handlePauseResumeConfirm() {
     const action =
@@ -112,6 +117,34 @@ export function RecurringDetailView({
     router.refresh();
   }
 
+  async function handleCatchUpConfirm() {
+    const result = await catchUpRecurringRuleAction(householdId, {
+      recurringRuleId: rule.id,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      result.data.recordedCount === 0
+        ? "Already up to date — nothing to catch up"
+        : `Recorded ${result.data.recordedCount} occurrence${result.data.recordedCount === 1 ? "" : "s"}`,
+    );
+    router.refresh();
+  }
+
+  async function handleReactivateConfirm() {
+    const result = await reactivateRecurringRuleAction(householdId, {
+      recurringRuleId: rule.id,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Rule reactivated");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -145,6 +178,14 @@ export function RecurringDetailView({
               <Button onClick={() => setRecordOpen(true)}>
                 Record occurrence
               </Button>
+              {rule.isMissed && (
+                <Button
+                  variant="outline"
+                  onClick={() => setCatchUpConfirmOpen(true)}
+                >
+                  Catch up missed occurrences
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setSkipConfirmOpen(true)}
@@ -152,6 +193,11 @@ export function RecurringDetailView({
                 Skip
               </Button>
             </>
+          )}
+          {rule.status === "ended" && (
+            <Button onClick={() => setReactivateConfirmOpen(true)}>
+              Reactivate
+            </Button>
           )}
           <Button variant="outline" onClick={() => setAmountChangeOpen(true)}>
             Change amount
@@ -423,6 +469,26 @@ export function RecurringDetailView({
         }
         confirmLabel="Skip"
         onConfirm={handleSkipConfirm}
+      />
+      <ConfirmDialog
+        open={catchUpConfirmOpen}
+        onOpenChange={setCatchUpConfirmOpen}
+        title="Catch up missed occurrences?"
+        description={
+          rule.next_due_date
+            ? `Records every occurrence due from ${formatDisplayDate(rule.next_due_date)} through today as cleared — one real transaction per scheduled date, in one step instead of one at a time.`
+            : undefined
+        }
+        confirmLabel="Catch up"
+        onConfirm={handleCatchUpConfirm}
+      />
+      <ConfirmDialog
+        open={reactivateConfirmOpen}
+        onOpenChange={setReactivateConfirmOpen}
+        title="Reactivate this rule?"
+        description="Undoes an 'ended' status set by mistake. Its schedule resumes from the same next due date — nothing is fast-forwarded."
+        confirmLabel="Reactivate"
+        onConfirm={handleReactivateConfirm}
       />
     </div>
   );
