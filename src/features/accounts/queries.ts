@@ -259,6 +259,12 @@ export type AccountDetail = AccountRow & {
   monthlyInflow: Money;
   monthlyOutflow: Money;
   balanceHistory: AccountBalanceSnapshot[];
+  /** All-time totals, independent of the calculated balance/snapshot baseline above — see the "Lifetime totals" comment below. */
+  lifetimeDeposits: Money;
+  lifetimeWithdrawals: Money;
+  lifetimeIncome: Money;
+  lifetimeExpenses: Money;
+  lifetimeNet: Money;
 };
 
 /**
@@ -359,6 +365,59 @@ export async function getAccountDetail(
     .filter((t) => t.kind === "expense")
     .reduce((sum, t) => sum + (t.amount_minor_units ?? 0), 0);
 
+  // Lifetime totals — the calculated balance above answers "what do I have
+  // now"; this answers "how much has ever moved through this account,
+  // broken down by why" (e.g. a wallet used for betting: total put in,
+  // total taken out, total won, total lost, net). status = 'cleared' only,
+  // same reporting convention as the monthly figures above. Deliberately
+  // unbounded by date and independent of the snapshot baseline — a
+  // snapshot changes what the *balance* calculation trusts, not history.
+  const [lifetimeCashFlowResult, lifetimeTransfersResult] = await Promise.all(
+    [
+      supabase
+        .from("cash_flow_transactions")
+        .select("kind, amount_minor_units")
+        .eq("household_id", householdId)
+        .eq("account_id", accountId)
+        .eq("status", "cleared"),
+      supabase
+        .from("transactions")
+        .select(
+          "account_id, transfer_account_id, amount_minor_units, transfer_fee_minor_units, transfer_destination_amount_minor_units",
+        )
+        .eq("household_id", householdId)
+        .eq("kind", "transfer")
+        .eq("status", "cleared")
+        .or(`account_id.eq.${accountId},transfer_account_id.eq.${accountId}`),
+    ],
+  );
+  const lifetimeCashFlow = unwrapList(lifetimeCashFlowResult);
+  const lifetimeIncomeMinorUnits = lifetimeCashFlow
+    .filter((t) => t.kind === "income")
+    .reduce((sum, t) => sum + (t.amount_minor_units ?? 0), 0);
+  const lifetimeExpensesMinorUnits = lifetimeCashFlow
+    .filter((t) => t.kind === "expense")
+    .reduce((sum, t) => sum + (t.amount_minor_units ?? 0), 0);
+
+  const lifetimeTransfers = unwrapList(lifetimeTransfersResult);
+  // Same amount/fee/destination-amount handling as signedContribution
+  // (src/lib/calculations/account-balance.ts) — kept independent rather
+  // than reusing that function since it answers a different question
+  // (gross lifetime flow, not the current signed balance contribution).
+  const lifetimeDepositsMinorUnits = lifetimeTransfers
+    .filter((t) => t.transfer_account_id === accountId)
+    .reduce(
+      (sum, t) =>
+        sum + (t.transfer_destination_amount_minor_units ?? t.amount_minor_units),
+      0,
+    );
+  const lifetimeWithdrawalsMinorUnits = lifetimeTransfers
+    .filter((t) => t.account_id === accountId)
+    .reduce(
+      (sum, t) => sum + t.amount_minor_units + (t.transfer_fee_minor_units ?? 0),
+      0,
+    );
+
   return {
     ...account,
     institutionName: institutions?.name ?? null,
@@ -377,6 +436,26 @@ export async function getAccountDetail(
       currencyCode: account.currency_code,
     },
     balanceHistory,
+    lifetimeDeposits: {
+      amountMinorUnits: lifetimeDepositsMinorUnits,
+      currencyCode: account.currency_code,
+    },
+    lifetimeWithdrawals: {
+      amountMinorUnits: lifetimeWithdrawalsMinorUnits,
+      currencyCode: account.currency_code,
+    },
+    lifetimeIncome: {
+      amountMinorUnits: lifetimeIncomeMinorUnits,
+      currencyCode: account.currency_code,
+    },
+    lifetimeExpenses: {
+      amountMinorUnits: lifetimeExpensesMinorUnits,
+      currencyCode: account.currency_code,
+    },
+    lifetimeNet: {
+      amountMinorUnits: lifetimeIncomeMinorUnits - lifetimeExpensesMinorUnits,
+      currencyCode: account.currency_code,
+    },
   };
 }
 

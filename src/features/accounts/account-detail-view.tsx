@@ -158,6 +158,41 @@ export function AccountDetailView({
 
       <Card>
         <CardHeader>
+          <CardTitle>Lifetime totals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <SummaryCard
+              title="Total deposited"
+              amount={formatMoney(account.lifetimeDeposits)}
+              caption="Transferred in from another account, all-time"
+            />
+            <SummaryCard
+              title="Total withdrawn"
+              amount={formatMoney(account.lifetimeWithdrawals)}
+              caption="Transferred out to another account, all-time"
+            />
+            <SummaryCard
+              title="Total income"
+              amount={formatMoney(account.lifetimeIncome)}
+              caption="All-time, e.g. winnings/interest credited here"
+            />
+            <SummaryCard
+              title="Total expenses"
+              amount={formatMoney(account.lifetimeExpenses)}
+              caption="All-time, e.g. losses/fees charged here"
+            />
+            <SummaryCard
+              title="Net (income − expenses)"
+              amount={formatMoney(account.lifetimeNet)}
+              caption="How much this account has made or lost overall"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Recent transactions</CardTitle>
         </CardHeader>
         <CardContent>
