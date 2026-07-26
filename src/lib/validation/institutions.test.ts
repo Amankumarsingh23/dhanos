@@ -96,4 +96,23 @@ describe("institutionInputSchema", () => {
       }).success,
     ).toBe(false);
   });
+
+  // A real bug, found live: the dialog's website/phone/email fields are
+  // all optional, but react-hook-form submits an untouched text input as
+  // "" — never as `undefined` — so these three fields must each accept
+  // an explicit empty string, not just an omitted key. `.optional()`
+  // alone does NOT cover this (it only allows `undefined` through, on
+  // top of whatever the base string schema already accepts).
+  it("accepts an explicit empty string for every optional field (not just an omitted key)", () => {
+    const result = institutionInputSchema.safeParse({
+      name: "HDFC Bank",
+      institutionType: "bank",
+      website: "",
+      supportPhone: "",
+      supportEmail: "",
+      platformName: "",
+      notes: "",
+    });
+    expect(result.success).toBe(true);
+  });
 });

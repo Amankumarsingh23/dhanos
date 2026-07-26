@@ -48,11 +48,23 @@ const nameSchema = z
 const WEBSITE_PATTERN =
   /^(https?:\/\/)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+(:\d+)?(\/.*)?$/i;
 
+// `.optional()`/`.nullable()` only let the schema accept `undefined`/`null`
+// *instead of* running the string checks — they do not make an empty
+// string skip those checks, and a blank <input> always submits `""`, never
+// `undefined`. Every refine below explicitly allows `""` through (an
+// untouched optional field), so "leave it blank" and "type a valid value"
+// are the only two ways to pass — found live: the institution dialog
+// showed "Enter a valid website URL"/"Enter a valid phone number" on
+// fields the user never touched, because the old refines rejected the
+// empty string these fields actually submit as.
 const websiteSchema = z
   .string()
   .trim()
   .max(300, "Website is too long")
-  .refine((value) => WEBSITE_PATTERN.test(value), "Enter a valid website URL")
+  .refine(
+    (value) => value === "" || WEBSITE_PATTERN.test(value),
+    "Enter a valid website URL",
+  )
   .nullable()
   .optional();
 
@@ -63,14 +75,28 @@ const PHONE_PATTERN = /^[+()\-.\s\d]{6,30}$/;
 const supportPhoneSchema = z
   .string()
   .trim()
-  .refine((value) => PHONE_PATTERN.test(value), "Enter a valid phone number")
+  .refine(
+    (value) => value === "" || PHONE_PATTERN.test(value),
+    "Enter a valid phone number",
+  )
   .nullable()
   .optional();
+
+// A plain regex refine (matching WEBSITE_PATTERN/PHONE_PATTERN's own
+// style above) rather than zod's built-in `.email()` — that built-in
+// check has the exact same "rejects an empty string" behavior as the
+// custom refines here, but doesn't offer a way to special-case `""`
+// inline without an extra wrapping schema, so it's more consistent to
+// use the same refine shape as its two siblings.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const supportEmailSchema = z
   .string()
   .trim()
-  .email("Enter a valid email address")
+  .refine(
+    (value) => value === "" || EMAIL_PATTERN.test(value),
+    "Enter a valid email address",
+  )
   .nullable()
   .optional();
 
