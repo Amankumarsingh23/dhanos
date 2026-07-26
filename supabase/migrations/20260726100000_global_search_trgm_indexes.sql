@@ -21,6 +21,15 @@
 
 create extension if not exists pg_trgm with schema extensions;
 
+-- `extensions` isn't on this session's default search_path on every
+-- Postgres host (confirmed live: local's CLI-managed Postgres has it on
+-- the path already, a fresh Supabase Cloud project's migration-runner
+-- session does not) — every unqualified `gin_trgm_ops` reference below
+-- would otherwise fail to resolve. Scoped to this migration script only;
+-- never touches the app's own runtime search_path (PostgREST/RPC calls
+-- don't go through this session at all).
+set search_path = public, extensions;
+
 -- Accounts
 create index financial_accounts_name_trgm_idx
   on public.financial_accounts using gin (name gin_trgm_ops);
